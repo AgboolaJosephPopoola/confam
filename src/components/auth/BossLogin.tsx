@@ -19,7 +19,7 @@ export function BossLogin() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back, Boss.");
+        toast.success("Welcome back, Admin.");
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -45,7 +45,7 @@ export function BossLogin() {
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-dim border border-emerald-brand/30">
             <Zap className="w-5 h-5 text-emerald-brand" />
           </div>
-          <span className="text-lg font-bold tracking-tight">PayWatch</span>
+          <span className="text-lg font-bold tracking-tight">Confam Pay</span>
         </div>
 
         <div className="space-y-6">
@@ -70,7 +70,7 @@ export function BossLogin() {
         </div>
 
         <p className="text-xs text-muted-foreground/40">
-          © 2026 PayWatch · Enterprise Edition
+          © 2026 Confam Pay · Enterprise Edition
         </p>
       </div>
 
@@ -82,12 +82,12 @@ export function BossLogin() {
             <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-dim border border-emerald-brand/30">
               <Zap className="w-4.5 h-4.5 text-emerald-brand" />
             </div>
-            <span className="text-base font-bold">PayWatch</span>
+            <span className="text-base font-bold">Confam Pay</span>
           </div>
 
           <div>
             <h2 className="text-2xl font-bold text-foreground">
-              {mode === "login" ? "Boss Dashboard" : "Create Account"}
+              {mode === "login" ? "Admin Dashboard" : "Create Account"}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {mode === "login" ? "Sign in to your control panel" : "Set up your company workspace"}
@@ -105,7 +105,7 @@ export function BossLogin() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="boss@company.com"
+                  placeholder="admin@company.com"
                   className="w-full bg-surface-2 border border-surface-3 rounded-lg pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30 transition-colors"
                   autoComplete="email"
                 />
