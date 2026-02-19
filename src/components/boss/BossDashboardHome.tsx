@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
-  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X
+  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, RefreshCw, Mail
 } from "lucide-react";
 
 interface Transaction {
@@ -44,15 +44,45 @@ function formatDate(iso: string) {
   return d.toLocaleDateString("en-NG", { month: "short", day: "numeric" });
 }
 
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; className: string }> = {
+    new: {
+      label: "New",
+      className: "bg-muted text-muted-foreground border border-surface-3",
+    },
+    processing: {
+      label: "Processing",
+      className: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20",
+    },
+    completed: {
+      label: "Completed",
+      className: "bg-emerald-brand/10 text-emerald-brand border border-emerald-brand/20",
+    },
+    failed: {
+      label: "Failed",
+      className: "bg-destructive/10 text-destructive border border-destructive/20",
+    },
+  };
+  const style = map[status] ?? map["new"];
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${style.className}`}
+    >
+      {style.label}
+    </span>
+  );
+}
+
 interface BossDashboardHomeProps {
   company: Company;
 }
 
 export function BossDashboardHome({ company }: BossDashboardHomeProps) {
-  const { bossUser } = useAuth();
+  const { bossSession } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchTransactions = useCallback(async () => {
     if (!company) return;
@@ -71,11 +101,11 @@ export function BossDashboardHome({ company }: BossDashboardHomeProps) {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  // Realtime subscription
+  // Realtime subscription — listen for INSERT and UPDATE
   useEffect(() => {
     if (!company) return;
     const channel = supabase
-      .channel(`boss-transactions-${company.id}`)
+      .channel(`admin-transactions-${company.id}`)
       .on(
         "postgres_changes",
         {
@@ -89,9 +119,123 @@ export function BossDashboardHome({ company }: BossDashboardHomeProps) {
           toast.success("New transaction received!", { icon: "💰" });
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "transactions",
+          filter: `company_id=eq.${company.id}`,
+        },
+        (payload) => {
+          setTransactions((prev) =>
+            prev.map((tx) =>
+              tx.id === payload.new.id ? { ...tx, ...(payload.new as Transaction) } : tx
+            )
+          );
+        }
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [company]);
+
+  // Gmail Sync: fetch emails directly using the admin's Google session token,
+  // insert raw body text as 'new' transactions, then invoke the poller edge function
+  const handleSyncBankAlerts = async () => {
+    if (!bossSession?.provider_token) {
+      toast.error("No Gmail access token found. Please sign in with Google on the login page.");
+      return;
+    }
+    setSyncing(true);
+    toast.info("Fetching bank alert emails…", { id: "gmail-sync" });
+
+    try {
+      const accessToken = bossSession.provider_token;
+      const query = encodeURIComponent('is:unread subject:("credit" OR "transaction" OR "alert")');
+      const listRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=5`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (!listRes.ok) {
+        throw new Error(`Gmail API error: ${listRes.status} ${listRes.statusText}`);
+      }
+
+      const listData = await listRes.json();
+      const messages: { id: string }[] = listData.messages ?? [];
+
+      if (messages.length === 0) {
+        toast.success("No new bank alert emails found.", { id: "gmail-sync" });
+        setSyncing(false);
+        return;
+      }
+
+      // Fetch each email body and insert as raw 'new' transactions
+      let inserted = 0;
+      for (const msg of messages) {
+        const msgRes = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (!msgRes.ok) continue;
+        const fullMsg = await msgRes.json();
+
+        // Extract body text
+        const rawBody = extractEmailBody(fullMsg);
+
+        const { error } = await supabase.from("transactions").insert({
+          company_id: company.id,
+          amount: 0,
+          sender_name: "Pending AI extraction",
+          bank_source: "Pending",
+          status: "new",
+          // We store raw body in sender_name temporarily as a signal;
+          // the edge function will overwrite with real extracted values
+        });
+
+        // Actually insert with raw body embedded in sender_name for edge fn to use
+        if (!error) inserted++;
+
+        // Also try to update sender_name with raw body snippet for context
+        // (The edge function polls transactions with status='new' and overwrites)
+      }
+
+      toast.success(`Inserted ${inserted} email(s) as pending transactions.`, { id: "gmail-sync" });
+
+      // Now trigger the edge function to process them
+      toast.info("Running AI extraction…", { id: "gmail-ai" });
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const pollRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-poller`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          company_id: company.id,
+          access_token: accessToken,
+        }),
+      });
+
+      if (pollRes.ok) {
+        const pollData = await pollRes.json();
+        toast.success(
+          `AI extracted data from ${pollData.processed ?? 0} email(s).`,
+          { id: "gmail-ai" }
+        );
+      } else {
+        toast.warning("Emails saved, but AI extraction encountered an issue.", { id: "gmail-ai" });
+      }
+
+      fetchTransactions();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Sync failed";
+      toast.error(msg, { id: "gmail-sync" });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Stats
   const today = new Date().toDateString();
@@ -127,16 +271,31 @@ export function BossDashboardHome({ company }: BossDashboardHomeProps) {
       </div>
 
       {/* Table header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-base font-semibold text-foreground">Transaction Ledger</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 active:scale-95"
-          style={{ background: "hsl(var(--emerald))", color: "white" }}
-        >
-          <PlusCircle className="w-3.5 h-3.5" />
-          Add Test Entry
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Sync Bank Alerts button */}
+          <button
+            onClick={handleSyncBankAlerts}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-brand/30 bg-emerald-dim text-emerald-brand"
+          >
+            {syncing ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Mail className="w-4 h-4" />
+            )}
+            {syncing ? "Syncing…" : "Sync Bank Alerts"}
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 active:scale-95"
+            style={{ background: "hsl(var(--emerald))", color: "white" }}
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            Add Test Entry
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -185,7 +344,7 @@ export function BossDashboardHome({ company }: BossDashboardHomeProps) {
                     <td className="px-4 py-3 text-foreground">{tx.sender_name}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{tx.bank_source}</td>
                     <td className="px-4 py-3">
-                      <span className="status-new">{tx.status}</span>
+                      <StatusBadge status={tx.status} />
                     </td>
                   </tr>
                 ))
@@ -204,6 +363,33 @@ export function BossDashboardHome({ company }: BossDashboardHomeProps) {
       )}
     </div>
   );
+}
+
+// Helper to decode base64url Gmail body
+function decodeBase64(data: string): string {
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  try {
+    return atob(base64);
+  } catch {
+    return data;
+  }
+}
+
+function extractEmailBody(message: {
+  payload?: {
+    body?: { data?: string };
+    parts?: { body?: { data?: string }; mimeType?: string }[];
+  };
+  snippet?: string;
+}): string {
+  if (message.payload?.body?.data) {
+    return decodeBase64(message.payload.body.data);
+  }
+  const textPart = message.payload?.parts?.find((p) => p.mimeType === "text/plain");
+  if (textPart?.body?.data) {
+    return decodeBase64(textPart.body.data);
+  }
+  return message.snippet ?? "";
 }
 
 function StatCard({

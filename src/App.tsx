@@ -19,7 +19,7 @@ function AppRoutes() {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-emerald-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">PayWatch initializing…</p>
+          <p className="text-sm text-muted-foreground">Confam Pay initializing…</p>
         </div>
       </div>
     );

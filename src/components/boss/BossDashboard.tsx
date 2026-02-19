@@ -86,7 +86,7 @@ export function BossDashboard() {
           </div>
           {!sidebarCollapsed && (
             <div className="min-w-0">
-              <p className="text-sm font-bold text-foreground truncate">PayWatch</p>
+              <p className="text-sm font-bold text-foreground truncate">Confam Pay</p>
               <p className="text-xs text-muted-foreground truncate">
                 {company?.name ?? "No Company"}
               </p>
