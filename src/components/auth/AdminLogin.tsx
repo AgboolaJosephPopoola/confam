@@ -13,38 +13,30 @@ export function AdminLogin() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   // Capture Gmail tokens after OAuth redirect
+  // Capture Gmail tokens via auth state change (more reliable than reading hash)
   useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash.includes("provider_token")) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session?.provider_token) {
+          const { error } = await supabase
+            .from("companies")
+            .update({
+              gmail_access_token: session.provider_token,
+              gmail_refresh_token: session.provider_refresh_token ?? null,
+              gmail_connected: true,
+            })
+            .eq("owner_id", session.user.id);
 
-    const params = new URLSearchParams(hash.replace("#", ""));
-    const providerToken = params.get("provider_token");
-    const providerRefreshToken = params.get("provider_refresh_token");
-
-    if (!providerToken) return;
-
-    const saveGmailTokens = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from("companies")
-        .update({
-          gmail_access_token: providerToken,
-          gmail_refresh_token: providerRefreshToken,
-          gmail_connected: true,
-        })
-        .eq("owner_id", user.id);
-
-      if (error) {
-        toast.error("Failed to save Gmail connection");
-      } else {
-        toast.success("Gmail connected successfully!");
-        window.history.replaceState(null, "", window.location.pathname);
+          if (error) {
+            toast.error("Failed to save Gmail connection");
+          } else {
+            toast.success("Gmail connected successfully!");
+          }
+        }
       }
-    };
+    );
 
-    saveGmailTokens();
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
