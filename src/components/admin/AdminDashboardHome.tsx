@@ -159,10 +159,15 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     toast.loading("Syncing bank alerts…", { id: "gmail-sync" });
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+
       const { data, error } = await supabase.functions.invoke("gmail-poller", {
         body: {
           company_id: company.id,
           access_token: accessToken,
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 
