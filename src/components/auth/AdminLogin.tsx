@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Zap, Mail, Lock, Eye, EyeOff, ArrowLeft, Chrome } from "lucide-react";
@@ -11,6 +11,41 @@ export function AdminLogin() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Capture Gmail tokens after OAuth redirect
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.includes("provider_token")) return;
+
+    const params = new URLSearchParams(hash.replace("#", ""));
+    const providerToken = params.get("provider_token");
+    const providerRefreshToken = params.get("provider_refresh_token");
+
+    if (!providerToken) return;
+
+    const saveGmailTokens = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          gmail_access_token: providerToken,
+          gmail_refresh_token: providerRefreshToken,
+          gmail_connected: true,
+        })
+        .eq("owner_id", user.id);
+
+      if (error) {
+        toast.error("Failed to save Gmail connection");
+      } else {
+        toast.success("Gmail connected successfully!");
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    };
+
+    saveGmailTokens();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
