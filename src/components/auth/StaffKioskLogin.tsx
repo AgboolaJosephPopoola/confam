@@ -59,7 +59,7 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
           <Zap className="w-8 h-8 text-emerald-brand" />
         </div>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">PayWatch</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Confam Pay</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Staff Kiosk Terminal</p>
         </div>
       </div>
@@ -116,7 +116,7 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg font-semibold text-sm bg-emerald-brand text-primary-foreground hover:opacity-90 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            className="w-full py-3 rounded-lg font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed mt-2 text-primary-foreground"
             style={{ background: "hsl(var(--emerald))" }}
           >
             {loading ? "Authenticating…" : "Enter Workspace"}
@@ -126,8 +126,8 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
         <div className="mt-6 pt-4 border-t border-surface-3 text-center">
           <p className="text-xs text-muted-foreground">
             Are you the account owner?{" "}
-            <a href="/boss-login" className="text-emerald-brand hover:underline font-medium">
-              Boss Login →
+            <a href="/admin-login" className="text-emerald-brand hover:underline font-medium">
+              Admin Login →
             </a>
           </p>
         </div>
@@ -135,7 +135,7 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
 
       {/* Footer */}
       <p className="mt-6 text-xs text-muted-foreground/50">
-        PayWatch v1.0 · Secure Transaction Monitor
+        Confam Pay v1.0 · Secure Transaction Monitor
       </p>
     </div>
   );

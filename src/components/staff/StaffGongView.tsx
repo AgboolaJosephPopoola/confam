@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { LogOut, Wifi, WifiOff, Zap } from "lucide-react";
+import { LogOut, Wifi, WifiOff, Zap, Sun, Moon } from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -33,6 +34,7 @@ function timeAgo(iso: string) {
 
 export function StaffGongView() {
   const { staffSession, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
@@ -45,7 +47,6 @@ export function StaffGongView() {
         audioRef.current = new AudioContext();
       }
       const ctx = audioRef.current;
-      // Synthesize a cash-register-like sound
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.connect(gainNode);
@@ -58,7 +59,6 @@ export function StaffGongView() {
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.8);
 
-      // Second ding
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.connect(gain2);
@@ -108,7 +108,6 @@ export function StaffGongView() {
         },
         (payload) => {
           const newTx = payload.new as Transaction;
-          // Only show if within last 24 hours
           if (Date.now() - new Date(newTx.created_at).getTime() < 86400000) {
             setTransactions((prev) => [newTx, ...prev]);
             setNewIds((prev) => new Set(prev).add(newTx.id));
@@ -117,7 +116,6 @@ export function StaffGongView() {
               description: `₦${formatAmount(newTx.amount)} from ${newTx.sender_name}`,
               duration: 5000,
             });
-            // Remove new highlight after animation
             setTimeout(() => {
               setNewIds((prev) => {
                 const next = new Set(prev);
@@ -136,6 +134,8 @@ export function StaffGongView() {
   }, [staffSession, playGong]);
 
   if (!staffSession) return null;
+
+  const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   return (
     <div className="flex flex-col min-h-screen bg-background max-w-md mx-auto">
@@ -159,6 +159,14 @@ export function StaffGongView() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <button
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+              title="Toggle theme"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             {connected ? (
               <Wifi className="w-4 h-4 text-emerald-brand" />
             ) : (
@@ -242,15 +250,12 @@ function GongCard({
         </div>
       )}
 
-      {/* Amount — the hero element */}
       <div className="amount-display mb-2">
         ₦{formatAmount(tx.amount)}
       </div>
 
-      {/* Sender */}
       <p className="text-base font-semibold text-foreground leading-tight">{tx.sender_name}</p>
 
-      {/* Meta row */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-3/50">
         <span className="text-xs font-mono text-muted-foreground">{tx.bank_source}</span>
         <span className="text-xs text-muted-foreground">{timeAgo(tx.created_at)}</span>
