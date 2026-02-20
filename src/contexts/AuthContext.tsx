@@ -46,12 +46,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setBossSession(session);
       setBossUser(session?.user ?? null);
+
       if (session) {
+        // Save provider_token when available (only present right after OAuth)
+        if (session.provider_token) {
+          localStorage.setItem("gmail_provider_token", session.provider_token);
+        }
         // Boss logged in — clear any staff session
         import("@/lib/staffSession").then(({ clearStaffSession }) => {
           clearStaffSession();
           setStaffSession(null);
         });
+      } else {
+        // Signed out — clear saved token
+        localStorage.removeItem("gmail_provider_token");
       }
     });
 
@@ -64,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (bossUser) {
       await supabase.auth.signOut();
     }
+    localStorage.removeItem("gmail_provider_token");
     import("@/lib/staffSession").then(({ clearStaffSession }) => {
       clearStaffSession();
       setStaffSession(null);
