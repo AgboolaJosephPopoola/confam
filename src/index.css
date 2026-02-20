@@ -4,26 +4,27 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-/* ===== FINTECH DARK DESIGN SYSTEM ===== */
+/* ===== CONFAM PAY DESIGN SYSTEM — DUAL LIGHT/DARK ===== */
 
 @layer base {
+  /* ── DARK MODE (default) ── */
   :root {
     /* Core Palette */
-    --background: 240 10% 4%;        /* #09090b near-black */
-    --foreground: 0 0% 96%;          /* near white */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 240 8% 7%;               /* slightly lighter than bg */
+    --card: 240 8% 7%;
     --card-foreground: 0 0% 94%;
 
     --popover: 240 8% 8%;
     --popover-foreground: 0 0% 96%;
 
     /* Emerald Green = Primary */
-    --primary: 160 84% 39%;          /* #10b981 emerald-500 */
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
 
-    --primary-glow: 158 100% 30%;    /* darker emerald for gradients */
-    --primary-dim: 160 40% 15%;      /* muted emerald bg */
+    --primary-glow: 158 100% 30%;
+    --primary-dim: 160 40% 15%;
 
     --secondary: 240 6% 12%;
     --secondary-foreground: 0 0% 82%;
@@ -53,7 +54,7 @@
     --sidebar-border: 240 6% 11%;
     --sidebar-ring: 160 84% 39%;
 
-    /* Custom design tokens */
+    /* Custom surface tokens */
     --surface-1: 240 8% 7%;
     --surface-2: 240 7% 10%;
     --surface-3: 240 6% 14%;
@@ -75,6 +76,69 @@
     --gradient-card: linear-gradient(135deg, hsl(240 8% 8%), hsl(240 6% 6%));
   }
 
+  /* ── LIGHT MODE ── */
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+
+    --primary: 160 84% 34%;
+    --primary-foreground: 0 0% 100%;
+
+    --primary-glow: 158 100% 28%;
+    --primary-dim: 160 50% 92%;
+
+    --secondary: 240 5% 93%;
+    --secondary-foreground: 240 10% 20%;
+
+    --muted: 240 5% 92%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 160 84% 34%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 6% 86%;
+    --input: 240 6% 93%;
+    --ring: 160 84% 34%;
+
+    /* Sidebar */
+    --sidebar-background: 240 8% 96%;
+    --sidebar-foreground: 240 8% 30%;
+    --sidebar-primary: 160 84% 34%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 90%;
+    --sidebar-accent-foreground: 240 10% 20%;
+    --sidebar-border: 240 6% 87%;
+    --sidebar-ring: 160 84% 34%;
+
+    /* Surfaces */
+    --surface-1: 0 0% 100%;
+    --surface-2: 240 5% 96%;
+    --surface-3: 240 6% 90%;
+
+    --emerald: 160 84% 34%;
+    --emerald-bright: 160 84% 42%;
+    --emerald-dim: 160 60% 92%;
+
+    --gold: 43 96% 46%;
+
+    --shadow-emerald: 0 0 20px hsl(160 84% 34% / 0.15);
+    --shadow-card: 0 4px 24px hsl(240 10% 10% / 0.08);
+    --shadow-glow: 0 0 40px hsl(160 84% 34% / 0.1);
+
+    --gradient-emerald: linear-gradient(135deg, hsl(160 84% 34%), hsl(158 100% 24%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 100%), hsl(240 5% 96%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(240 5% 97%));
+  }
+
   * {
     @apply border-border;
   }
@@ -86,7 +150,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Number displays - monospace feel */
   .font-mono-number {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
@@ -95,13 +158,11 @@
 }
 
 @layer components {
-  /* Emerald glow border */
   .border-emerald-glow {
     border-color: hsl(var(--emerald) / 0.4);
     box-shadow: 0 0 0 1px hsl(var(--emerald) / 0.15);
   }
 
-  /* Live pulsing dot */
   .pulse-dot {
     @apply relative inline-flex h-2.5 w-2.5;
   }
@@ -117,14 +178,12 @@
     content: '';
   }
 
-  /* Glass card */
   .glass-card {
     background: hsl(var(--surface-1));
     border: 1px solid hsl(var(--border));
     backdrop-filter: blur(12px);
   }
 
-  /* Amount display */
   .amount-display {
     color: hsl(var(--emerald));
     font-size: 2.5rem;
@@ -134,7 +193,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Transaction card hover */
   .tx-card {
     @apply glass-card rounded-xl p-5 transition-all duration-300;
     cursor: default;
@@ -144,7 +202,6 @@
     box-shadow: var(--shadow-emerald);
   }
 
-  /* Sidebar nav item */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200;
     color: hsl(var(--sidebar-foreground));
@@ -159,7 +216,6 @@
     border-left: 2px solid hsl(var(--emerald));
   }
 
-  /* Status badge */
   .status-new {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium;
     background: hsl(var(--emerald-dim));
@@ -174,6 +230,12 @@
   .bg-emerald-brand {
     background: hsl(var(--emerald));
   }
+  .bg-emerald-dim {
+    background: hsl(var(--emerald-dim));
+  }
+  .border-emerald-brand {
+    border-color: hsl(var(--emerald));
+  }
   .bg-surface-1 {
     background: hsl(var(--surface-1));
   }
@@ -185,6 +247,9 @@
   }
   .border-surface {
     border-color: hsl(var(--border));
+  }
+  .border-surface-3 {
+    border-color: hsl(var(--surface-3));
   }
 }
 
@@ -208,8 +273,8 @@
 }
 
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 15px hsl(160 84% 39% / 0.3); }
-  50% { box-shadow: 0 0 30px hsl(160 84% 39% / 0.6); }
+  0%, 100% { box-shadow: 0 0 15px hsl(var(--emerald) / 0.3); }
+  50% { box-shadow: 0 0 30px hsl(var(--emerald) / 0.6); }
 }
 
 .animate-slide-in {
@@ -218,6 +283,10 @@
 
 .animate-glow-pulse {
   animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: slide-in-top 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Scrollbar */

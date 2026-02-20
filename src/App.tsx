@@ -3,10 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { StaffKioskLogin } from "@/components/auth/StaffKioskLogin";
-import { BossLogin } from "@/components/auth/BossLogin";
-import { BossDashboard } from "@/components/boss/BossDashboard";
+import { AdminLogin } from "@/components/auth/AdminLogin";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { StaffGongView } from "@/components/staff/StaffGongView";
 
 const queryClient = new QueryClient();
@@ -28,7 +29,7 @@ function AppRoutes() {
   if (userType === "boss") {
     return (
       <Routes>
-        <Route path="/*" element={<BossDashboard />} />
+        <Route path="/*" element={<AdminDashboard />} />
       </Routes>
     );
   }
@@ -49,24 +50,28 @@ function AppRoutes() {
           <StaffKioskLogin onSuccess={() => window.location.reload()} />
         }
       />
-      <Route path="/boss-login" element={<BossLogin />} />
+      <Route path="/admin-login" element={<AdminLogin />} />
+      {/* legacy redirect */}
+      <Route path="/boss-login" element={<Navigate to="/admin-login" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner richColors position="top-center" />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner richColors position="top-center" />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
