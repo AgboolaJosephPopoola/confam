@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
-  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, RefreshCw, Mail, Loader2
+  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, Mail, Loader2
 } from "lucide-react";
 
 interface Transaction {
@@ -105,7 +105,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  // Realtime subscription — listen for INSERT and UPDATE
+  // Realtime subscription
   useEffect(() => {
     if (!company) return;
     const channel = supabase
@@ -143,13 +143,13 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     return () => { supabase.removeChannel(channel); };
   }, [company]);
 
-  // Sync Bank Alerts: invoke the edge function with provider_token + company_id
   const handleSyncBankAlerts = async () => {
-    const accessToken = bossSession?.provider_token;
+    // Read from session first, fall back to localStorage
+    const accessToken = bossSession?.provider_token ?? localStorage.getItem("gmail_provider_token");
 
     if (!accessToken) {
       toast.error(
-        "No Gmail access token. Please sign in with Google (Gmail Access) on the login page.",
+        "No Gmail access token. Please sign out and sign back in with Google.",
         { duration: 5000 }
       );
       return;
@@ -181,7 +181,6 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
         );
       }
 
-      // Refresh table to pick up newly completed transactions
       await fetchTransactions();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sync failed";
@@ -191,7 +190,6 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     }
   };
 
-  // Stats
   const today = new Date().toDateString();
   const todayTxs = transactions.filter(
     (t) => new Date(t.created_at).toDateString() === today
@@ -228,7 +226,6 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-base font-semibold text-foreground">Transaction Ledger</h2>
         <div className="flex items-center gap-2">
-          {/* Sync Bank Alerts button */}
           <button
             onClick={handleSyncBankAlerts}
             disabled={syncing}
