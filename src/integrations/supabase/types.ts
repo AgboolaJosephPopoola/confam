@@ -17,6 +17,7 @@ export type Database = {
       companies: {
         Row: {
           company_code: string
+          connected_banks: string[] | null
           created_at: string
           gmail_connected: boolean
           id: string
@@ -28,6 +29,7 @@ export type Database = {
         }
         Insert: {
           company_code: string
+          connected_banks?: string[] | null
           created_at?: string
           gmail_connected?: boolean
           id?: string
@@ -39,6 +41,7 @@ export type Database = {
         }
         Update: {
           company_code?: string
+          connected_banks?: string[] | null
           created_at?: string
           gmail_connected?: boolean
           id?: string
