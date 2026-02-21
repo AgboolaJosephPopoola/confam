@@ -1,8 +1,13 @@
+// -- ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS connected_banks TEXT[] DEFAULT '{}';
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
-import { Mail, Hash, Lock, Power, Save, CheckCircle, Sun, Moon, Monitor } from "lucide-react";
+import {
+  Mail, Hash, Lock, Power, Save, CheckCircle, Sun, Moon, Monitor,
+  Plus, X, Check, Building2,
+} from "lucide-react";
 
 interface Company {
   id: string;
@@ -11,11 +16,49 @@ interface Company {
   staff_pin: string;
   system_active: boolean;
   gmail_connected: boolean;
+  connected_banks?: string[];
 }
 
 interface AdminSettingsProps {
   company: Company;
   onUpdate: () => void;
+}
+
+const DEFAULT_BANKS: { name: string; domain: string }[] = [
+  { name: "GTBank", domain: "gtbank.com" },
+  { name: "Access Bank", domain: "accessbankplc.com" },
+  { name: "Zenith Bank", domain: "zenithbank.com" },
+  { name: "UBA", domain: "ubagroup.com" },
+  { name: "First Bank", domain: "firstbanknig.com" },
+  { name: "Opay", domain: "opay-nigeria.com" },
+  { name: "Moniepoint", domain: "moniepoint.com" },
+  { name: "Kuda", domain: "kuda.co" },
+  { name: "ALAT", domain: "alat.ng" },
+  { name: "Safe Haven", domain: "safehavenmfb.com" },
+  { name: "Wema Bank", domain: "wemabank.com" },
+  { name: "Fidelity Bank", domain: "fidelitybank.ng" },
+  { name: "Ecobank", domain: "ecobank.com" },
+  { name: "FairMoney", domain: "fairmoney.ng" },
+  { name: "Stanbic IBTC", domain: "stanbicibtc.com" },
+];
+
+function BankFavicon({ domain, name }: { domain: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
+        {name.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+      alt={name}
+      className="w-8 h-8 rounded-lg flex-shrink-0 object-contain"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
@@ -26,7 +69,38 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(company.gmail_connected);
 
+  // Connected banks
+  const [selectedBanks, setSelectedBanks] = useState<string[]>(company.connected_banks ?? []);
+  const [customBanks, setCustomBanks] = useState<{ name: string; domain: string }[]>([]);
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [customBankName, setCustomBankName] = useState("");
+
   const { theme, setTheme } = useTheme();
+
+  const toggleBank = (bankName: string) => {
+    setSelectedBanks((prev) =>
+      prev.includes(bankName) ? prev.filter((b) => b !== bankName) : [...prev, bankName]
+    );
+  };
+
+  const addCustomBank = () => {
+    const trimmed = customBankName.trim();
+    if (!trimmed) return;
+    if ([...DEFAULT_BANKS, ...customBanks].some((b) => b.name.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error("Bank already exists");
+      return;
+    }
+    const domain = trimmed.toLowerCase().replace(/\s+/g, "") + ".com";
+    setCustomBanks((prev) => [...prev, { name: trimmed, domain }]);
+    setSelectedBanks((prev) => [...prev, trimmed]);
+    setCustomBankName("");
+    setAddingCustom(false);
+  };
+
+  const removeCustomBank = (bankName: string) => {
+    setCustomBanks((prev) => prev.filter((b) => b.name !== bankName));
+    setSelectedBanks((prev) => prev.filter((b) => b !== bankName));
+  };
 
   const handleSave = async () => {
     if (!code.trim() || !pin.trim() || !name.trim()) {
@@ -41,7 +115,8 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
         company_code: code.trim().toUpperCase(),
         staff_pin: pin.trim(),
         system_active: systemActive,
-      })
+        connected_banks: selectedBanks,
+      } as any)
       .eq("id", company.id);
 
     if (error) {
@@ -71,6 +146,8 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     { value: "system", label: "System", icon: Monitor },
   ] as const;
 
+  const allBanks = [...DEFAULT_BANKS, ...customBanks];
+
   return (
     <div className="max-w-xl space-y-6">
       <div>
@@ -95,6 +172,83 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
               {label}
             </button>
           ))}
+        </div>
+      </Section>
+
+      {/* Connected Banks */}
+      <Section title="Connected Banks" description="Select the banks you receive payment alerts from">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {allBanks.map((bank) => {
+            const isSelected = selectedBanks.includes(bank.name);
+            const isCustom = customBanks.some((c) => c.name === bank.name);
+            return (
+              <button
+                key={bank.name}
+                onClick={() => toggleBank(bank.name)}
+                className={`relative flex items-center gap-2.5 p-3 rounded-xl border text-left text-sm font-medium transition-all ${
+                  isSelected
+                    ? "border-emerald-brand/60 bg-emerald-dim"
+                    : "border-surface-3 bg-surface-2 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <BankFavicon domain={bank.domain} name={bank.name} />
+                <span className={`truncate text-xs ${isSelected ? "text-emerald-brand" : ""}`}>
+                  {bank.name}
+                </span>
+                {isSelected && (
+                  <Check className="w-3.5 h-3.5 text-emerald-brand absolute top-1.5 right-1.5" />
+                )}
+                {isCustom && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeCustomBank(bank.name);
+                    }}
+                    className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Remove custom bank"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Add Custom Bank */}
+          {addingCustom ? (
+            <div className="flex items-center gap-2 p-2 rounded-xl border border-emerald-brand/40 bg-surface-2 col-span-2 sm:col-span-3">
+              <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <input
+                type="text"
+                value={customBankName}
+                onChange={(e) => setCustomBankName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addCustomBank()}
+                placeholder="Bank name…"
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                autoFocus
+              />
+              <button
+                onClick={addCustomBank}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-dim text-emerald-brand hover:bg-emerald-brand/20 transition-colors"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setAddingCustom(false); setCustomBankName(""); }}
+                className="p-1 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingCustom(true)}
+              className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all text-xs font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Custom Bank
+            </button>
+          )}
         </div>
       </Section>
 

@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Settings, Users, Zap, LogOut,
-  ChevronRight, RefreshCw, PlusCircle, TrendingUp,
+  ChevronRight, RefreshCw, PlusCircle, TrendingUp, Menu, X,
 } from "lucide-react";
 import { AdminDashboardHome } from "./AdminDashboardHome";
 import { AdminSettings } from "./AdminSettings";
@@ -18,6 +18,7 @@ interface Company {
   staff_pin: string;
   system_active: boolean;
   gmail_connected: boolean;
+  connected_banks?: string[];
 }
 
 export function AdminDashboard() {
@@ -26,6 +27,7 @@ export function AdminDashboard() {
   const [company, setCompany] = useState<Company | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     fetchCompany();
@@ -70,96 +72,134 @@ export function AdminDashboard() {
     { id: "staff", label: "Staff Access", icon: Users },
   ];
 
-  return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside
-        className={`flex flex-col border-r border-surface-3 transition-all duration-300 ${
-          sidebarCollapsed ? "w-16" : "w-60"
-        }`}
-        style={{ background: "hsl(var(--sidebar-background))" }}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-surface-3">
-          <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-dim border border-emerald-brand/30">
-            <Zap className="w-4 h-4 text-emerald-brand" />
-          </div>
-          {!sidebarCollapsed && (
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-foreground truncate">Confam Pay</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {company?.name ?? "No Company"}
-              </p>
-            </div>
-          )}
+  const handleNavClick = (id: NavTab) => {
+    setActiveTab(id);
+    setMobileOpen(false);
+  };
+
+  const sidebarContent = (
+    <>
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 h-16 border-b border-surface-3">
+        <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-dim border border-emerald-brand/30">
+          <Zap className="w-4 h-4 text-emerald-brand" />
         </div>
-
-        {/* Nav */}
-        <nav className="flex-1 p-3 space-y-1">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`nav-item w-full ${activeTab === id ? "active" : ""} ${
-                sidebarCollapsed ? "justify-center px-2" : ""
-              }`}
-              title={sidebarCollapsed ? label : undefined}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {!sidebarCollapsed && <span>{label}</span>}
-              {!sidebarCollapsed && activeTab === id && (
-                <ChevronRight className="w-3 h-3 ml-auto text-emerald-brand" />
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* System status */}
-        {!sidebarCollapsed && company && (
-          <div className="m-3 p-3 rounded-lg bg-surface-2 border border-surface-3">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  company.system_active ? "bg-emerald-brand animate-glow-pulse" : "bg-muted-foreground"
-                }`}
-              />
-              <span className="text-xs text-muted-foreground">
-                System {company.system_active ? "Active" : "Paused"}
-              </span>
-            </div>
+        {!sidebarCollapsed && (
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground truncate">Confam Pay</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {company?.name ?? "No Company"}
+            </p>
           </div>
         )}
+        {/* Mobile close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="ml-auto md:hidden p-1 rounded-lg text-muted-foreground hover:text-foreground"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
-        {/* Bottom: collapse + sign out */}
-        <div className="p-3 border-t border-surface-3 space-y-1">
+      {/* Nav */}
+      <nav className="flex-1 p-3 space-y-1">
+        {navItems.map(({ id, label, icon: Icon }) => (
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="nav-item w-full"
-            title="Toggle sidebar"
+            key={id}
+            onClick={() => handleNavClick(id)}
+            className={`nav-item w-full ${activeTab === id ? "active" : ""} ${
+              sidebarCollapsed ? "justify-center px-2" : ""
+            }`}
+            title={sidebarCollapsed ? label : undefined}
           >
-            <ChevronRight
-              className={`w-4 h-4 flex-shrink-0 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`}
+            <Icon className="w-4 h-4 flex-shrink-0" />
+            {!sidebarCollapsed && <span>{label}</span>}
+            {!sidebarCollapsed && activeTab === id && (
+              <ChevronRight className="w-3 h-3 ml-auto text-emerald-brand" />
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* System status */}
+      {!sidebarCollapsed && company && (
+        <div className="m-3 p-3 rounded-lg bg-surface-2 border border-surface-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                company.system_active ? "bg-emerald-brand animate-glow-pulse" : "bg-muted-foreground"
+              }`}
             />
-            {!sidebarCollapsed && <span className="text-xs">Collapse</span>}
-          </button>
-          <button
-            onClick={signOut}
-            className="nav-item w-full text-destructive/80 hover:text-destructive"
-            title="Sign out"
-          >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Sign Out</span>}
-          </button>
+            <span className="text-xs text-muted-foreground">
+              System {company.system_active ? "Active" : "Paused"}
+            </span>
+          </div>
         </div>
+      )}
+
+      {/* Bottom: collapse + sign out */}
+      <div className="p-3 border-t border-surface-3 space-y-1">
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="nav-item w-full hidden md:flex"
+          title="Toggle sidebar"
+        >
+          <ChevronRight
+            className={`w-4 h-4 flex-shrink-0 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`}
+          />
+          {!sidebarCollapsed && <span className="text-xs">Collapse</span>}
+        </button>
+        <button
+          onClick={signOut}
+          className="nav-item w-full text-destructive/80 hover:text-destructive"
+          title="Sign out"
+        >
+          <LogOut className="w-4 h-4 flex-shrink-0" />
+          {!sidebarCollapsed && <span>Sign Out</span>}
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — desktop: normal flow; mobile: fixed overlay */}
+      <aside
+        className={`
+          flex flex-col border-r border-surface-3 transition-all duration-300
+          fixed inset-y-0 left-0 z-50 md:relative md:z-auto
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${sidebarCollapsed ? "md:w-16" : "md:w-60"} w-72
+        `}
+        style={{ background: "hsl(var(--sidebar-background))" }}
+      >
+        {sidebarContent}
       </aside>
 
       {/* Main content */}
       <main className="flex-1 min-w-0 overflow-auto">
         {/* Top bar */}
-        <header className="h-16 border-b border-surface-3 flex items-center justify-between px-6 bg-surface-1/50 sticky top-0 z-10 backdrop-blur-sm">
-          <div>
-            <h1 className="text-sm font-semibold text-foreground capitalize">{activeTab}</h1>
-            <p className="text-xs text-muted-foreground">{bossUser?.email}</p>
+        <header className="h-16 border-b border-surface-3 flex items-center justify-between px-4 sm:px-6 bg-surface-1/50 sticky top-0 z-10 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 -ml-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-sm font-semibold text-foreground capitalize">{activeTab}</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">{bossUser?.email}</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {company && (
@@ -179,7 +219,7 @@ export function AdminDashboard() {
         </header>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {loadingCompany ? (
             <div className="flex items-center justify-center h-64">
               <div className="space-y-3 text-center">
@@ -215,7 +255,7 @@ export function AdminDashboard() {
   );
 }
 
-function StaffInfoPanel({ company }: { company: Company }) {
+function StaffInfoPanel({ company }: { company: { company_code: string; staff_pin: string } }) {
   return (
     <div className="max-w-md space-y-6">
       <div>
