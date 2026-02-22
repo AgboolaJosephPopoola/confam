@@ -23,6 +23,7 @@ interface Company {
   staff_pin: string;
   system_active: boolean;
   gmail_connected: boolean;
+  connected_banks?: string[];
 }
 
 function formatAmount(amount: number) {
@@ -87,6 +88,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [bankFilter, setBankFilter] = useState<string>("all");
 
   const fetchTransactions = useCallback(async () => {
     if (!company) return;
@@ -254,6 +256,35 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
         </div>
       </div>
 
+      {/* Bank filter */}
+      {(company.connected_banks?.length ?? 0) > 0 && (
+        <div className="flex gap-1.5 flex-wrap">
+          <button
+            onClick={() => setBankFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              bankFilter === "all"
+                ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
+                : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
+            }`}
+          >
+            All Banks
+          </button>
+          {company.connected_banks!.map((slug) => (
+            <button
+              key={slug}
+              onClick={() => setBankFilter(slug)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
+                bankFilter === slug
+                  ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
+                  : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
+              }`}
+            >
+              {slug.replace(/-/g, " ")}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Table */}
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -275,15 +306,27 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                     Loading transactions…
                   </td>
                 </tr>
-              ) : transactions.length === 0 ? (
+              ) : (bankFilter === "all"
+                  ? transactions
+                  : transactions.filter((tx) => {
+                      const src = tx.bank_source.toLowerCase().replace(/\s+/g, "-");
+                      return src === bankFilter || tx.bank_source.toLowerCase().replace(/\s+/g, "") === bankFilter.replace(/-/g, "");
+                    })
+                ).length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">
                     <ArrowDownLeft className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                    No transactions yet
+                    No transactions {bankFilter !== "all" ? "for this bank" : "yet"}
                   </td>
                 </tr>
               ) : (
-                transactions.map((tx, idx) => (
+                (bankFilter === "all"
+                  ? transactions
+                  : transactions.filter((tx) => {
+                      const src = tx.bank_source.toLowerCase().replace(/\s+/g, "-");
+                      return src === bankFilter || tx.bank_source.toLowerCase().replace(/\s+/g, "") === bankFilter.replace(/-/g, "");
+                    })
+                ).map((tx, idx) => (
                   <tr
                     key={tx.id}
                     className={`border-b border-surface-3/50 hover:bg-surface-2/50 transition-colors ${idx === 0 ? "animate-slide-in" : ""}`}
