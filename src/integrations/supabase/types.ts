@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      banks: {
+        Row: {
+          created_at: string | null
+          email_domain: string
+          id: string
+          is_default: boolean | null
+          logo_url: string | null
+          name: string
+          slug: string
+          tier: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_domain: string
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          name: string
+          slug: string
+          tier?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          email_domain?: string
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          tier?: number | null
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           company_code: string
@@ -21,10 +54,13 @@ export type Database = {
           created_at: string
           gmail_connected: boolean
           id: string
+          max_banks: number | null
           name: string
           owner_id: string
           staff_pin: string
+          subscription_tier: string | null
           system_active: boolean
+          transaction_count_this_month: number | null
           updated_at: string
         }
         Insert: {
@@ -33,10 +69,13 @@ export type Database = {
           created_at?: string
           gmail_connected?: boolean
           id?: string
+          max_banks?: number | null
           name: string
           owner_id: string
           staff_pin: string
+          subscription_tier?: string | null
           system_active?: boolean
+          transaction_count_this_month?: number | null
           updated_at?: string
         }
         Update: {
@@ -45,10 +84,13 @@ export type Database = {
           created_at?: string
           gmail_connected?: boolean
           id?: string
+          max_banks?: number | null
           name?: string
           owner_id?: string
           staff_pin?: string
+          subscription_tier?: string | null
           system_active?: boolean
+          transaction_count_this_month?: number | null
           updated_at?: string
         }
         Relationships: []

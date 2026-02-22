@@ -1,6 +1,6 @@
 // -- ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS connected_banks TEXT[] DEFAULT '{}';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
@@ -24,40 +24,50 @@ interface AdminSettingsProps {
   onUpdate: () => void;
 }
 
-const DEFAULT_BANKS: { name: string; domain: string }[] = [
-  { name: "GTBank", domain: "gtbank.com" },
-  { name: "Access Bank", domain: "accessbankplc.com" },
-  { name: "Zenith Bank", domain: "zenithbank.com" },
-  { name: "UBA", domain: "ubagroup.com" },
-  { name: "First Bank", domain: "firstbanknig.com" },
-  { name: "Opay", domain: "opay-nigeria.com" },
-  { name: "Moniepoint", domain: "moniepoint.com" },
-  { name: "Kuda", domain: "kuda.co" },
-  { name: "ALAT", domain: "alat.ng" },
-  { name: "Safe Haven", domain: "safehavenmfb.com" },
-  { name: "Wema Bank", domain: "wemabank.com" },
-  { name: "Fidelity Bank", domain: "fidelitybank.ng" },
-  { name: "Ecobank", domain: "ecobank.com" },
-  { name: "FairMoney", domain: "fairmoney.ng" },
-  { name: "Stanbic IBTC", domain: "stanbicibtc.com" },
-];
+interface BankRecord {
+  id: string;
+  name: string;
+  slug: string;
+  email_domain: string;
+  logo_url: string | null;
+  tier: number | null;
+  is_default: boolean | null;
+}
 
-function BankFavicon({ domain, name }: { domain: string; name: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
+type FilterTab = "all" | "tier1" | "mobile";
+
+function BankLogo({ bank }: { bank: BankRecord }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [devFailed, setDevFailed] = useState(false);
+
+  const logoDevUrl = `https://img.logo.dev/${bank.email_domain}?token=pk_Y4o27wSKQ-CHrCGnVUT0oQ&size=64`;
+
+  if (bank.logo_url && !logoFailed) {
     return (
-      <div className="w-8 h-8 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
-        {name.charAt(0).toUpperCase()}
-      </div>
+      <img
+        src={bank.logo_url}
+        alt={bank.name}
+        className="w-8 h-8 rounded-lg flex-shrink-0 object-contain"
+        onError={() => setLogoFailed(true)}
+      />
     );
   }
+
+  if (!devFailed) {
+    return (
+      <img
+        src={logoDevUrl}
+        alt={bank.name}
+        className="w-8 h-8 rounded-lg flex-shrink-0 object-contain"
+        onError={() => setDevFailed(true)}
+      />
+    );
+  }
+
   return (
-    <img
-      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-      alt={name}
-      className="w-8 h-8 rounded-lg flex-shrink-0 object-contain"
-      onError={() => setFailed(true)}
-    />
+    <div className="w-8 h-8 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
+      {bank.name.charAt(0).toUpperCase()}
+    </div>
   );
 }
 
@@ -69,38 +79,89 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(company.gmail_connected);
 
-  // Connected banks
-  const [selectedBanks, setSelectedBanks] = useState<string[]>(company.connected_banks ?? []);
-  const [customBanks, setCustomBanks] = useState<{ name: string; domain: string }[]>([]);
+  // Banks from DB
+  const [banks, setBanks] = useState<BankRecord[]>([]);
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>(company.connected_banks ?? []);
+  const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [addingCustom, setAddingCustom] = useState(false);
   const [customBankName, setCustomBankName] = useState("");
 
   const { theme, setTheme } = useTheme();
 
-  const toggleBank = (bankName: string) => {
-    setSelectedBanks((prev) =>
-      prev.includes(bankName) ? prev.filter((b) => b !== bankName) : [...prev, bankName]
+  useEffect(() => {
+    fetchBanks();
+  }, []);
+
+  const fetchBanks = async () => {
+    const { data, error } = await supabase
+      .from("banks")
+      .select("*")
+      .order("tier", { ascending: true })
+      .order("name", { ascending: true });
+    if (!error && data) setBanks(data as BankRecord[]);
+  };
+
+  const toggleBank = (slug: string) => {
+    setSelectedSlugs((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
     );
   };
 
-  const addCustomBank = () => {
+  const addCustomBank = async () => {
     const trimmed = customBankName.trim();
     if (!trimmed) return;
-    if ([...DEFAULT_BANKS, ...customBanks].some((b) => b.name.toLowerCase() === trimmed.toLowerCase())) {
+    if (banks.some((b) => b.name.toLowerCase() === trimmed.toLowerCase())) {
       toast.error("Bank already exists");
       return;
     }
+    const slug = trimmed.toLowerCase().replace(/\s+/g, "-");
     const domain = trimmed.toLowerCase().replace(/\s+/g, "") + ".com";
-    setCustomBanks((prev) => [...prev, { name: trimmed, domain }]);
-    setSelectedBanks((prev) => [...prev, trimmed]);
+
+    const { data, error } = await supabase
+      .from("banks")
+      .insert({
+        name: trimmed,
+        slug,
+        email_domain: domain,
+        is_default: false,
+        tier: 2,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Failed to add bank");
+      return;
+    }
+    setBanks((prev) => [...prev, data as BankRecord]);
+    setSelectedSlugs((prev) => [...prev, slug]);
     setCustomBankName("");
     setAddingCustom(false);
   };
 
-  const removeCustomBank = (bankName: string) => {
-    setCustomBanks((prev) => prev.filter((b) => b.name !== bankName));
-    setSelectedBanks((prev) => prev.filter((b) => b !== bankName));
+  const removeCustomBank = async (bank: BankRecord) => {
+    const { error } = await supabase.from("banks").delete().eq("id", bank.id);
+    if (error) {
+      toast.error("Failed to remove bank");
+      return;
+    }
+    setBanks((prev) => prev.filter((b) => b.id !== bank.id));
+    setSelectedSlugs((prev) => prev.filter((s) => s !== bank.slug));
   };
+
+  // Filter banks
+  const filteredBanks = banks.filter((b) => {
+    if (filterTab === "tier1") return b.tier === 1;
+    if (filterTab === "mobile") return b.tier === 2;
+    return true;
+  });
+
+  // Sort: selected first
+  const sortedBanks = [...filteredBanks].sort((a, b) => {
+    const aSelected = selectedSlugs.includes(a.slug) ? 0 : 1;
+    const bSelected = selectedSlugs.includes(b.slug) ? 0 : 1;
+    return aSelected - bSelected;
+  });
 
   const handleSave = async () => {
     if (!code.trim() || !pin.trim() || !name.trim()) {
@@ -115,7 +176,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
         company_code: code.trim().toUpperCase(),
         staff_pin: pin.trim(),
         system_active: systemActive,
-        connected_banks: selectedBanks,
+        connected_banks: selectedSlugs,
       } as any)
       .eq("id", company.id);
 
@@ -146,7 +207,11 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     { value: "system", label: "System", icon: Monitor },
   ] as const;
 
-  const allBanks = [...DEFAULT_BANKS, ...customBanks];
+  const filterTabs: { id: FilterTab; label: string }[] = [
+    { id: "all", label: "All Banks" },
+    { id: "tier1", label: "Tier 1" },
+    { id: "mobile", label: "Mobile Money" },
+  ];
 
   return (
     <div className="max-w-xl space-y-6">
@@ -177,21 +242,38 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
 
       {/* Connected Banks */}
       <Section title="Connected Banks" description="Select the banks you receive payment alerts from">
+        {/* Filter tabs */}
+        <div className="flex gap-1.5 mb-3">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterTab(tab.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                filterTab === tab.id
+                  ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
+                  : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {allBanks.map((bank) => {
-            const isSelected = selectedBanks.includes(bank.name);
-            const isCustom = customBanks.some((c) => c.name === bank.name);
+          {sortedBanks.map((bank) => {
+            const isSelected = selectedSlugs.includes(bank.slug);
+            const isCustom = bank.is_default === false;
             return (
               <button
-                key={bank.name}
-                onClick={() => toggleBank(bank.name)}
+                key={bank.id}
+                onClick={() => toggleBank(bank.slug)}
                 className={`relative flex items-center gap-2.5 p-3 rounded-xl border text-left text-sm font-medium transition-all ${
                   isSelected
                     ? "border-emerald-brand/60 bg-emerald-dim"
                     : "border-surface-3 bg-surface-2 text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <BankFavicon domain={bank.domain} name={bank.name} />
+                <BankLogo bank={bank} />
                 <span className={`truncate text-xs ${isSelected ? "text-emerald-brand" : ""}`}>
                   {bank.name}
                 </span>
@@ -202,7 +284,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeCustomBank(bank.name);
+                      removeCustomBank(bank);
                     }}
                     className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-destructive transition-colors"
                     title="Remove custom bank"
@@ -250,6 +332,8 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
             </button>
           )}
         </div>
+
+        <p className="text-xs text-muted-foreground/50 mt-2">Bank logos provided by Logo.dev</p>
       </Section>
 
       {/* Gmail Integration */}
