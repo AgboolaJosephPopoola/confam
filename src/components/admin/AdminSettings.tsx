@@ -36,10 +36,16 @@ interface BankRecord {
 
 type FilterTab = "all" | "tier1" | "mobile";
 
+const BLOCKED_DOMAINS = [
+  "facebook.com", "google.com", "linkedin.com", "twitter.com",
+  "instagram.com", "youtube.com", "microsoft.com", "apple.com",
+];
+
 function BankLogo({ bank }: { bank: BankRecord }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const [devFailed, setDevFailed] = useState(false);
 
+  const isBlocked = BLOCKED_DOMAINS.some((d) => bank.email_domain === d || bank.email_domain.endsWith("." + d));
   const logoDevUrl = `https://img.logo.dev/${bank.email_domain}?token=pk_Y4o27wSKQ-CHrCGnVUT0oQ&size=64`;
 
   if (bank.logo_url && !logoFailed) {
@@ -53,7 +59,7 @@ function BankLogo({ bank }: { bank: BankRecord }) {
     );
   }
 
-  if (!devFailed) {
+  if (!isBlocked && !devFailed) {
     return (
       <img
         src={logoDevUrl}
@@ -115,7 +121,11 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
       return;
     }
     const slug = trimmed.toLowerCase().replace(/\s+/g, "-");
-    const domain = trimmed.toLowerCase().replace(/\s+/g, "") + ".com";
+    const guessedDomain = trimmed.toLowerCase().replace(/\s+/g, "") + ".com";
+
+    // Check if guessed domain is in the blocklist
+    const domainIsBlocked = BLOCKED_DOMAINS.some((d) => guessedDomain === d || guessedDomain.endsWith("." + d));
+    const domain = domainIsBlocked ? slug + "-bank.invalid" : guessedDomain;
 
     const { data, error } = await supabase
       .from("banks")
@@ -183,7 +193,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     if (error) {
       toast.error(error.message.includes("unique") ? "That company code is already taken." : "Save failed");
     } else {
-      toast.success("Settings saved!");
+      toast.success("Saved ✓", { description: "Your settings have been updated." });
       onUpdate();
     }
     setSaving(false);
@@ -287,7 +297,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
                       removeCustomBank(bank);
                     }}
                     className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                    title="Remove custom bank"
+                    title="Remove other bank"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -296,7 +306,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
             );
           })}
 
-          {/* Add Custom Bank */}
+          {/* Add Other Bank */}
           {addingCustom ? (
             <div className="flex items-center gap-2 p-2 rounded-xl border border-emerald-brand/40 bg-surface-2 col-span-2 sm:col-span-3">
               <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -328,7 +338,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
               className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all text-xs font-medium"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Custom Bank
+              Add Other Bank
             </button>
           )}
         </div>

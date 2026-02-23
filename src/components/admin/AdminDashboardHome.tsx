@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
-  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, Mail, Loader2
+  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, Mail, Loader2, Pencil,
 } from "lucide-react";
 
 interface Transaction {
@@ -24,6 +24,11 @@ interface Company {
   system_active: boolean;
   gmail_connected: boolean;
   connected_banks?: string[];
+}
+
+interface BankRecord {
+  name: string;
+  slug: string;
 }
 
 function formatAmount(amount: number) {
@@ -89,6 +94,24 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [bankFilter, setBankFilter] = useState<string>("all");
+  const [connectedBankNames, setConnectedBankNames] = useState<BankRecord[]>([]);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // Fetch bank names for connected_banks slugs
+  useEffect(() => {
+    if (!company.connected_banks?.length) {
+      setConnectedBankNames([]);
+      return;
+    }
+    const fetchBankNames = async () => {
+      const { data } = await supabase
+        .from("banks")
+        .select("name, slug")
+        .in("slug", company.connected_banks!);
+      if (data) setConnectedBankNames(data as BankRecord[]);
+    };
+    fetchBankNames();
+  }, [company.connected_banks]);
 
   const fetchTransactions = useCallback(async () => {
     if (!company) return;
@@ -146,7 +169,6 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
   }, [company]);
 
   const handleSyncBankAlerts = async () => {
-    // Read from session first, fall back to localStorage
     const accessToken = bossSession?.provider_token ?? localStorage.getItem("gmail_provider_token");
 
     if (!accessToken) {
@@ -204,6 +226,14 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
   const todayTotal = todayTxs.reduce((s, t) => s + Number(t.amount), 0);
   const totalAll = transactions.reduce((s, t) => s + Number(t.amount), 0);
 
+  // Filter transactions by bank
+  const filteredTransactions = bankFilter === "all"
+    ? transactions
+    : transactions.filter((tx) => {
+        const src = tx.bank_source.toLowerCase().replace(/\s+/g, "-");
+        return src === bankFilter || tx.bank_source.toLowerCase().replace(/\s+/g, "") === bankFilter.replace(/-/g, "");
+      });
+
   return (
     <div className="space-y-6">
       {/* Stats */}
@@ -256,8 +286,8 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
         </div>
       </div>
 
-      {/* Bank filter */}
-      {(company.connected_banks?.length ?? 0) > 0 && (
+      {/* Bank filter — only show verified connected banks */}
+      {connectedBankNames.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setBankFilter("all")}
@@ -269,17 +299,17 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
           >
             All Banks
           </button>
-          {company.connected_banks!.map((slug) => (
+          {connectedBankNames.map((bank) => (
             <button
-              key={slug}
-              onClick={() => setBankFilter(slug)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
-                bankFilter === slug
+              key={bank.slug}
+              onClick={() => setBankFilter(bank.slug)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                bankFilter === bank.slug
                   ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
                   : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
               }`}
             >
-              {slug.replace(/-/g, " ")}
+              {bank.name}
             </button>
           ))}
         </div>
@@ -296,37 +326,26 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sender</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Bank</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">
+                  <td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
                     <div className="w-5 h-5 border-2 border-emerald-brand border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     Loading transactions…
                   </td>
                 </tr>
-              ) : (bankFilter === "all"
-                  ? transactions
-                  : transactions.filter((tx) => {
-                      const src = tx.bank_source.toLowerCase().replace(/\s+/g, "-");
-                      return src === bankFilter || tx.bank_source.toLowerCase().replace(/\s+/g, "") === bankFilter.replace(/-/g, "");
-                    })
-                ).length === 0 ? (
+              ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">
+                  <td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
                     <ArrowDownLeft className="w-6 h-6 mx-auto mb-2 opacity-30" />
                     No transactions {bankFilter !== "all" ? "for this bank" : "yet"}
                   </td>
                 </tr>
               ) : (
-                (bankFilter === "all"
-                  ? transactions
-                  : transactions.filter((tx) => {
-                      const src = tx.bank_source.toLowerCase().replace(/\s+/g, "-");
-                      return src === bankFilter || tx.bank_source.toLowerCase().replace(/\s+/g, "") === bankFilter.replace(/-/g, "");
-                    })
-                ).map((tx, idx) => (
+                filteredTransactions.map((tx, idx) => (
                   <tr
                     key={tx.id}
                     className={`border-b border-surface-3/50 hover:bg-surface-2/50 transition-colors ${idx === 0 ? "animate-slide-in" : ""}`}
@@ -345,6 +364,15 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                     <td className="px-4 py-3">
                       <StatusBadge status={tx.status} />
                     </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setEditingTx(tx)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+                        title="Edit transaction"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -358,6 +386,14 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
           companyId={company.id}
           onClose={() => setShowAddModal(false)}
           onAdded={fetchTransactions}
+        />
+      )}
+
+      {editingTx && (
+        <EditTransactionModal
+          transaction={editingTx}
+          onClose={() => setEditingTx(null)}
+          onSaved={fetchTransactions}
         />
       )}
     </div>
@@ -469,10 +505,100 @@ function AddTransactionModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 active:scale-95 text-primary-foreground"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 text-primary-foreground"
             style={{ background: "hsl(var(--emerald))" }}
           >
             {loading ? "Adding…" : "Add Transaction"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditTransactionModal({
+  transaction, onClose, onSaved,
+}: {
+  transaction: Transaction;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [amount, setAmount] = useState(String(transaction.amount));
+  const [sender, setSender] = useState(transaction.sender_name);
+  const [bankSource, setBankSource] = useState(transaction.bank_source);
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !sender.trim() || !bankSource.trim()) {
+      toast.error("Fill all fields correctly");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        amount: parsedAmount,
+        sender_name: sender.trim(),
+        bank_source: bankSource.trim(),
+      })
+      .eq("id", transaction.id);
+
+    if (error) {
+      toast.error("Failed to update transaction");
+    } else {
+      toast.success("Transaction updated ✓");
+      onSaved();
+      onClose();
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-card animate-fade-in">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-semibold">Edit Transaction</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount (₦)</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sender Name</label>
+            <input
+              type="text"
+              value={sender}
+              onChange={(e) => setSender(e.target.value)}
+              className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Bank Source</label>
+            <input
+              type="text"
+              value={bankSource}
+              onChange={(e) => setBankSource(e.target.value)}
+              className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 text-primary-foreground"
+            style={{ background: "hsl(var(--emerald))" }}
+          >
+            {loading ? "Saving…" : "Save Changes"}
           </button>
         </form>
       </div>
