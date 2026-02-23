@@ -20,7 +20,8 @@ export type Database = {
           email_domain: string
           id: string
           is_default: boolean | null
-          logo_url: string | null
+          logo_dev_url: string | null
+          logo_local_url: string | null
           name: string
           slug: string
           tier: number | null
@@ -30,7 +31,8 @@ export type Database = {
           email_domain: string
           id?: string
           is_default?: boolean | null
-          logo_url?: string | null
+          logo_dev_url?: string | null
+          logo_local_url?: string | null
           name: string
           slug: string
           tier?: number | null
@@ -40,7 +42,8 @@ export type Database = {
           email_domain?: string
           id?: string
           is_default?: boolean | null
-          logo_url?: string | null
+          logo_dev_url?: string | null
+          logo_local_url?: string | null
           name?: string
           slug?: string
           tier?: number | null
