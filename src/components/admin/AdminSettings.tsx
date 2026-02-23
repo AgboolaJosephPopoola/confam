@@ -29,12 +29,11 @@ interface BankRecord {
   name: string;
   slug: string;
   email_domain: string;
-  logo_url: string | null;
+  logo_local_url: string | null;
+  logo_dev_url: string | null;
   tier: number | null;
   is_default: boolean | null;
 }
-
-type FilterTab = "all" | "tier1" | "mobile";
 
 const BLOCKED_DOMAINS = [
   "facebook.com", "google.com", "linkedin.com", "twitter.com",
@@ -42,27 +41,24 @@ const BLOCKED_DOMAINS = [
 ];
 
 function BankLogo({ bank }: { bank: BankRecord }) {
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [localFailed, setLocalFailed] = useState(false);
   const [devFailed, setDevFailed] = useState(false);
 
-  const isBlocked = BLOCKED_DOMAINS.some((d) => bank.email_domain === d || bank.email_domain.endsWith("." + d));
-  const logoDevUrl = `https://img.logo.dev/${bank.email_domain}?token=pk_Y4o27wSKQ-CHrCGnVUT0oQ&size=64`;
-
-  if (bank.logo_url && !logoFailed) {
+  if (bank.logo_local_url && !localFailed) {
     return (
       <img
-        src={bank.logo_url}
+        src={bank.logo_local_url}
         alt={bank.name}
         className="w-8 h-8 rounded-lg flex-shrink-0 object-contain"
-        onError={() => setLogoFailed(true)}
+        onError={() => setLocalFailed(true)}
       />
     );
   }
 
-  if (!isBlocked && !devFailed) {
+  if (bank.logo_dev_url && !devFailed) {
     return (
       <img
-        src={logoDevUrl}
+        src={bank.logo_dev_url}
         alt={bank.name}
         className="w-8 h-8 rounded-lg flex-shrink-0 object-contain"
         onError={() => setDevFailed(true)}
@@ -88,7 +84,6 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   // Banks from DB
   const [banks, setBanks] = useState<BankRecord[]>([]);
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>(company.connected_banks ?? []);
-  const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [addingCustom, setAddingCustom] = useState(false);
   const [customBankName, setCustomBankName] = useState("");
 
@@ -159,15 +154,8 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     setSelectedSlugs((prev) => prev.filter((s) => s !== bank.slug));
   };
 
-  // Filter banks
-  const filteredBanks = banks.filter((b) => {
-    if (filterTab === "tier1") return b.tier === 1;
-    if (filterTab === "mobile") return b.tier === 2;
-    return true;
-  });
-
   // Sort: selected first
-  const sortedBanks = [...filteredBanks].sort((a, b) => {
+  const sortedBanks = [...banks].sort((a, b) => {
     const aSelected = selectedSlugs.includes(a.slug) ? 0 : 1;
     const bSelected = selectedSlugs.includes(b.slug) ? 0 : 1;
     return aSelected - bSelected;
@@ -217,12 +205,6 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     { value: "system", label: "System", icon: Monitor },
   ] as const;
 
-  const filterTabs: { id: FilterTab; label: string }[] = [
-    { id: "all", label: "All Banks" },
-    { id: "tier1", label: "Tier 1" },
-    { id: "mobile", label: "Mobile Money" },
-  ];
-
   return (
     <div className="max-w-xl space-y-6">
       <div>
@@ -252,23 +234,6 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
 
       {/* Connected Banks */}
       <Section title="Connected Banks" description="Select the banks you receive payment alerts from">
-        {/* Filter tabs */}
-        <div className="flex gap-1.5 mb-3">
-          {filterTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setFilterTab(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                filterTab === tab.id
-                  ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
-                  : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {sortedBanks.map((bank) => {
             const isSelected = selectedSlugs.includes(bank.slug);
@@ -338,7 +303,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
               className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all text-xs font-medium"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Other Bank
+              Add Other Banks
             </button>
           )}
         </div>
