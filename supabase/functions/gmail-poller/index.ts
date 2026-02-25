@@ -1,61 +1,57 @@
-// gmail-poller Edge Function
-// Queries transactions with status='new', calls Gemini AI to extract
-// amount, bank name, and sender name, then updates each row.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
 
-interface GmailMessage {
-  id: string;
-  snippet?: string;
-  payload?: {
-    headers?: { name: string; value: string }[];
-    body?: { data?: string };
-    parts?: { body?: { data?: string }; mimeType?: string }[];
-  };
-}
+const ALLOWED_BANK_DOMAINS = [
+  "gtbank.com", "accessbankplc.com", "zenithbank.com", "ubagroup.com",
+  "firstbanknig.com", "opay-nigeria.com", "moniepoint.com", "kuda.co",
+  "alat.ng", "wemabank.com", "fidelitybank.ng", "ecobank.com",
+  "fairmoney.ng", "stanbicibtc.com", "sterling.ng", "unionbankng.com",
+  "palmpay.com", "getcarbon.co", "safehavenmfb.com", "polarisbanklimited.com",
+];
 
-function decodeBase64(data: string): string {
-  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-  return atob(base64);
-}
-
-function extractEmailBody(message: GmailMessage): string {
-  if (message.payload?.body?.data) {
-    return decodeBase64(message.payload.body.data);
-  }
-  const textPart = message.payload?.parts?.find((p) => p.mimeType === "text/plain");
-  if (textPart?.body?.data) {
-    return decodeBase64(textPart.body.data);
-  }
-  return message.snippet ?? "";
+function isAllowedDomain(fromHeader: string): boolean {
+  const emailMatch = fromHeader.match(/<([^>]+)>/) ?? fromHeader.match(/([^\s]+@[^\s]+)/);
+  const email = emailMatch?.[1] ?? fromHeader;
+  const domain = email.split("@")[1]?.toLowerCase().trim() ?? "";
+  return ALLOWED_BANK_DOMAINS.some((allowed) => domain === allowed || domain.endsWith(`.${allowed}`));
 }
 
 async function extractWithGemini(
-  rawText: string,
+  subject: string,
+  from: string,
+  body: string,
   geminiApiKey: string
 ): Promise<{ amount: number; sender_name: string; bank_source: string } | null> {
-  const prompt = `Analyze this raw bank alert text. Extract the numeric Amount, the Bank Name, and clean up the Sender Name. Return strictly as a JSON object with keys: amount (number), sender_name (string), bank_source (string). If you cannot find valid payment data, return null.
+  const prompt = `You are a Nigerian bank payment alert parser. Analyze this email and extract payment details.
 
-Text:
-${rawText.substring(0, 2000)}
+From: ${from}
+Subject: ${subject}
+Body: ${body.substring(0, 5000)}
 
-Return only the JSON object, no markdown, no explanation.`;
+This is a CREDIT alert — money received into a Nigerian bank account.
+
+Return ONLY a JSON object with these exact keys:
+- amount: numeric amount in Naira as a plain number e.g. 5000
+- sender_name: full name of the person who sent the money
+- bank_source: name of the bank e.g. GTBank, Access Bank, OPay, Moniepoint
+
+If you cannot find a clear credit amount and sender name, return null.
+Return ONLY the JSON or null. No markdown, no explanation.`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300 },
+        generationConfig: { temperature: 0, maxOutputTokens: 200 },
       }),
     }
   );
@@ -67,13 +63,15 @@ Return only the JSON object, no markdown, no explanation.`;
 
   const data = await res.json();
   const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  console.log("Gemini raw response:", text);
 
-  // Strip markdown code fences if present
+  if (!text || text === "null") return null;
+
   const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
   try {
     const parsed = JSON.parse(cleaned);
-    if (parsed && typeof parsed.amount === "number" && parsed.sender_name) {
+    if (parsed && typeof parsed.amount === "number" && parsed.amount > 0 && parsed.sender_name) {
       return {
         amount: parsed.amount,
         sender_name: String(parsed.sender_name),
@@ -81,7 +79,7 @@ Return only the JSON object, no markdown, no explanation.`;
       };
     }
   } catch {
-    console.error("Failed to parse Gemini response:", text);
+    console.error("JSON parse failed:", text);
   }
   return null;
 }
@@ -94,144 +92,104 @@ serve(async (req) => {
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("ANON_KEY");
+    const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET");
 
-    if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return new Response(
-        JSON.stringify({ error: "Missing required environment variables" }),
+        JSON.stringify({ error: "Missing environment variables" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const body = await req.json().catch(() => ({}));
-    const { company_id, access_token } = body;
+
+    // Verify webhook secret
+    const incomingSecret = req.headers.get("x-webhook-secret");
+    if (WEBHOOK_SECRET && incomingSecret !== WEBHOOK_SECRET) {
+      console.error("Invalid webhook secret");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { from, subject, text: emailText, html, company_id, message_id } = body;
 
     if (!company_id) {
       return new Response(
-        JSON.stringify({ error: "company_id is required" }),
+        JSON.stringify({ error: "company_id required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let processed = 0;
-    let succeeded = 0;
-    let failed = 0;
-
-    // MODE 1: If an access_token is provided, fetch emails from Gmail directly
-    // and process them end-to-end (insert + extract in one shot).
-    if (access_token) {
-      const query = encodeURIComponent('is:unread subject:("credit" OR "transaction" OR "alert")');
-      const listRes = await fetch(
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=5`,
-        { headers: { Authorization: `Bearer ${access_token}` } }
+    // Reject non-bank domains
+    if (!isAllowedDomain(from ?? "")) {
+      console.log(`Rejected from unverified domain: ${from}`);
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "sender_domain_not_allowed", from }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
 
-      if (!listRes.ok) {
-        throw new Error(`Gmail list error: ${listRes.status}`);
-      }
-
-      const listData = await listRes.json();
-      const messages: { id: string }[] = listData.messages ?? [];
-      processed = messages.length;
-
-      for (const msg of messages) {
-        const msgRes = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
-          { headers: { Authorization: `Bearer ${access_token}` } }
-        );
-        if (!msgRes.ok) { failed++; continue; }
-
-        const fullMsg: GmailMessage = await msgRes.json();
-        const emailBody = extractEmailBody(fullMsg);
-
-        const extracted = await extractWithGemini(emailBody, GEMINI_API_KEY);
-
-        if (extracted) {
-          const { error } = await supabaseAdmin.from("transactions").insert({
-            company_id,
-            amount: extracted.amount,
-            sender_name: extracted.sender_name,
-            bank_source: extracted.bank_source,
-            status: "completed",
-          });
-          if (error) { console.error("Insert error:", error); failed++; }
-          else {
-            succeeded++;
-            // Mark as read
-            await fetch(
-              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${access_token}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ removeLabelIds: ["UNREAD"] }),
-              }
-            ).catch(() => {});
-          }
-        } else {
-          failed++;
-        }
-      }
-    } else {
-      // MODE 2: Process existing 'new' transactions already in the DB
-      const { data: newTxs, error: fetchError } = await supabaseAdmin
+    // Deduplication
+    if (message_id) {
+      const { data: existing } = await supabaseAdmin
         .from("transactions")
-        .select("*")
-        .eq("company_id", company_id)
-        .eq("status", "new");
+        .select("id")
+        .eq("message_id", message_id)
+        .maybeSingle();
 
-      if (fetchError) {
-        throw new Error(`DB fetch error: ${fetchError.message}`);
-      }
-
-      processed = (newTxs ?? []).length;
-
-      for (const tx of newTxs ?? []) {
-        // Use sender_name as raw text source if it contains email body content
-        const rawText = tx.sender_name ?? "";
-        if (!rawText || rawText.length < 10) {
-          await supabaseAdmin
-            .from("transactions")
-            .update({ status: "failed" })
-            .eq("id", tx.id);
-          failed++;
-          continue;
-        }
-
-        const extracted = await extractWithGemini(rawText, GEMINI_API_KEY);
-
-        if (extracted) {
-          const { error } = await supabaseAdmin
-            .from("transactions")
-            .update({
-              amount: extracted.amount,
-              sender_name: extracted.sender_name,
-              bank_source: extracted.bank_source,
-              status: "completed",
-            })
-            .eq("id", tx.id);
-          if (error) { failed++; }
-          else { succeeded++; }
-        } else {
-          await supabaseAdmin
-            .from("transactions")
-            .update({ status: "failed" })
-            .eq("id", tx.id);
-          failed++;
-        }
+      if (existing) {
+        console.log(`Duplicate skipped: ${message_id}`);
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "duplicate" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
+    const emailBody = emailText ?? html?.replace(/<[^>]*>/g, " ") ?? "";
+    console.log(`Processing: "${subject}" from "${from}"`);
+
+    const extracted = await extractWithGemini(
+      subject ?? "", from ?? "", emailBody, GEMINI_API_KEY
+    );
+
+    if (!extracted) {
+      console.log("No payment data found");
+      return new Response(
+        JSON.stringify({ processed: false, reason: "no_payment_data_found" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { error: insertError } = await supabaseAdmin.from("transactions").insert({
+      company_id,
+      amount: extracted.amount,
+      sender_name: extracted.sender_name,
+      bank_source: extracted.bank_source,
+      status: "completed",
+      message_id: message_id ?? null,
+    });
+
+    if (insertError) {
+      console.error("Insert error:", insertError.message);
+      return new Response(
+        JSON.stringify({ error: insertError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`✓ Saved: ₦${extracted.amount} from ${extracted.sender_name}`);
     return new Response(
-      JSON.stringify({ success: true, processed, succeeded, failed }),
+      JSON.stringify({ success: true, amount: extracted.amount, sender: extracted.sender_name }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (err) {
-    console.error("gmail-poller error:", err);
+    console.error("Edge Function error:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
