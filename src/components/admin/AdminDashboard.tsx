@@ -4,10 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Settings, Users, Zap, LogOut,
-  ChevronRight, RefreshCw, PlusCircle, TrendingUp, Menu, X,
+  ChevronRight, RefreshCw, TrendingUp, Menu, X,
 } from "lucide-react";
 import { AdminDashboardHome } from "./AdminDashboardHome";
 import { AdminSettings } from "./AdminSettings";
+import { AdminOnboarding } from "./AdminOnboarding";
 
 type NavTab = "dashboard" | "settings" | "staff";
 
@@ -45,26 +46,7 @@ export function AdminDashboard() {
     setLoadingCompany(false);
   };
 
-  const createCompany = async () => {
-    if (!bossUser) return;
-    const { data, error } = await supabase
-      .from("companies")
-      .insert({
-        name: "My Company",
-        company_code: "MC-" + Math.floor(1000 + Math.random() * 9000),
-        staff_pin: "1234",
-        owner_id: bossUser.id,
-      })
-      .select()
-      .single();
-    if (error) {
-      toast.error("Failed to create company");
-      return;
-    }
-    setCompany(data);
-    toast.success("Company workspace created!");
-    setActiveTab("settings");
-  };
+
 
   const navItems: { id: NavTab; label: string; icon: React.ElementType }[] = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -161,6 +143,23 @@ export function AdminDashboard() {
     </>
   );
 
+  // Show loading
+  if (loadingCompany) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="space-y-3 text-center">
+          <div className="w-8 h-8 border-2 border-emerald-brand border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading workspace…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show onboarding if no company
+  if (!company) {
+    return <AdminOnboarding onComplete={fetchCompany} />;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Mobile backdrop */}
@@ -220,29 +219,7 @@ export function AdminDashboard() {
 
         {/* Content */}
         <div className="p-4 sm:p-6">
-          {loadingCompany ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="space-y-3 text-center">
-                <div className="w-8 h-8 border-2 border-emerald-brand border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-muted-foreground">Loading workspace…</p>
-              </div>
-            </div>
-          ) : !company ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-semibold">No company workspace</h3>
-                <p className="text-sm text-muted-foreground">Create your company to get started</p>
-              </div>
-              <button
-                onClick={createCompany}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
-                style={{ background: "hsl(var(--emerald))", color: "white" }}
-              >
-                <PlusCircle className="w-4 h-4" />
-                Create Company Workspace
-              </button>
-            </div>
-          ) : activeTab === "dashboard" ? (
+          {activeTab === "dashboard" ? (
             <AdminDashboardHome company={company} />
           ) : activeTab === "settings" ? (
             <AdminSettings company={company} onUpdate={fetchCompany} />
