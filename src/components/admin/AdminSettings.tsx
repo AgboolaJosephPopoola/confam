@@ -79,7 +79,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   const [pin, setPin] = useState(company.staff_pin);
   const [systemActive, setSystemActive] = useState(company.system_active);
   const [saving, setSaving] = useState(false);
-  const [gmailConnected, setGmailConnected] = useState(company.gmail_connected);
+  const [gmailConnected, setGmailConnected] = useState(company.gmail_connected || !!localStorage.getItem("gmail_provider_token"));
 
   // Banks from DB
   const [banks, setBanks] = useState<BankRecord[]>([]);
@@ -91,6 +91,15 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
 
   useEffect(() => {
     fetchBanks();
+    const token = localStorage.getItem("gmail_provider_token");
+  if (token && !company.gmail_connected) {
+    setGmailConnected(true);
+    supabase
+      .from("companies")
+      .update({ gmail_connected: true })
+      .eq("id", company.id)
+      .then(() => onUpdate());
+  }
   }, []);
 
   const fetchBanks = async () => {
@@ -192,7 +201,7 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
       provider: "google",
       options: {
         scopes: "https://www.googleapis.com/auth/gmail.modify",
-        redirectTo: `${window.location.origin}/admin-login`,
+        redirectTo: `${window.location.origin}/admin`,
         queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
