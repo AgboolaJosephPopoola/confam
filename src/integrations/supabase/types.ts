@@ -57,6 +57,7 @@ export type Database = {
           created_at: string
           gmail_connected: boolean
           id: string
+          logo_url: string | null
           max_banks: number | null
           name: string
           owner_id: string
@@ -72,6 +73,7 @@ export type Database = {
           created_at?: string
           gmail_connected?: boolean
           id?: string
+          logo_url?: string | null
           max_banks?: number | null
           name: string
           owner_id: string
@@ -87,6 +89,7 @@ export type Database = {
           created_at?: string
           gmail_connected?: boolean
           id?: string
+          logo_url?: string | null
           max_banks?: number | null
           name?: string
           owner_id?: string
@@ -98,32 +101,82 @@ export type Database = {
         }
         Relationships: []
       }
+      staff: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          pin: string
+          role: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          pin: string
+          role?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          pin?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
+          acknowledged_at: string | null
           amount: number
           bank_source: string
           company_id: string
           created_at: string
           id: string
+          item_description: string | null
+          message_id: string | null
           sender_name: string
+          staff_id: string | null
           status: string
         }
         Insert: {
+          acknowledged_at?: string | null
           amount: number
           bank_source?: string
           company_id: string
           created_at?: string
           id?: string
+          item_description?: string | null
+          message_id?: string | null
           sender_name: string
+          staff_id?: string | null
           status?: string
         }
         Update: {
+          acknowledged_at?: string | null
           amount?: number
           bank_source?: string
           company_id?: string
           created_at?: string
           id?: string
+          item_description?: string | null
+          message_id?: string | null
           sender_name?: string
+          staff_id?: string | null
           status?: string
         }
         Relationships: [

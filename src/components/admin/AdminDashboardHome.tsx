@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+
 import { toast } from "sonner";
 import {
-  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, Mail, Loader2, Pencil,
+  ArrowDownLeft, TrendingUp, Clock, Database, PlusCircle, X, Pencil,
 } from "lucide-react";
 
 interface Transaction {
@@ -88,11 +88,11 @@ interface AdminDashboardHomeProps {
 }
 
 export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
-  const { bossSession } = useAuth();
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  
   const [bankFilter, setBankFilter] = useState<string>("all");
   const [connectedBankNames, setConnectedBankNames] = useState<BankRecord[]>([]);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -168,57 +168,6 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     return () => { supabase.removeChannel(channel); };
   }, [company]);
 
-  const handleSyncBankAlerts = async () => {
-    const accessToken = bossSession?.provider_token ?? localStorage.getItem("gmail_provider_token");
-
-    if (!accessToken) {
-      toast.error(
-        "No Gmail access token. Please sign out and sign back in with Google.",
-        { duration: 5000 }
-      );
-      return;
-    }
-
-    setSyncing(true);
-    toast.loading("Syncing bank alerts…", { id: "gmail-sync" });
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const { data, error } = await supabase.functions.invoke("gmail-poller", {
-        body: {
-          company_id: company.id,
-          access_token: accessToken,
-        },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
-
-      if (error) throw error;
-
-      const result = data as { processed?: number; succeeded?: number; failed?: number };
-      const succeeded = result?.succeeded ?? 0;
-      const processed = result?.processed ?? 0;
-
-      if (processed === 0) {
-        toast.success("No new bank alert emails found.", { id: "gmail-sync" });
-      } else {
-        toast.success(
-          `Synced ${processed} email(s) — ${succeeded} extracted by AI.`,
-          { id: "gmail-sync" }
-        );
-      }
-
-      await fetchTransactions();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Sync failed";
-      toast.error(msg, { id: "gmail-sync" });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const today = new Date().toDateString();
   const todayTxs = transactions.filter(
     (t) => new Date(t.created_at).toDateString() === today
@@ -263,18 +212,6 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-base font-semibold text-foreground">Transaction Ledger</h2>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleSyncBankAlerts}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-brand/30 bg-emerald-dim text-emerald-brand"
-          >
-            {syncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Mail className="w-4 h-4" />
-            )}
-            {syncing ? "Syncing…" : "Sync Bank Alerts"}
-          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 active:scale-95 text-primary-foreground"
