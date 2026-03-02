@@ -303,7 +303,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                         ₦{formatAmount(tx.amount)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-foreground">{tx.sender_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{tx.sender_name}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{tx.bank_source}</td>
                     <td className="px-4 py-3 text-foreground">{tx.item_description ?? "—"}</td>
                     <td className="px-4 py-3">
