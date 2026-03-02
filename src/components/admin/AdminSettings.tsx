@@ -6,8 +6,15 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import {
   Mail, Hash, Lock, Power, Save, CheckCircle, Sun, Moon, Monitor,
-  Plus, X, Check, Building2,
-} from "lucide-react";
+  Plus, X, Check, Building2, Trash2, Users,
+}from "lucide-react";
+
+interface StaffMember {
+  id: string;
+  name: string;
+  pin: string;
+  is_active: boolean;
+}
 
 interface Company {
   id: string;
@@ -87,10 +94,17 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   const [addingCustom, setAddingCustom] = useState(false);
   const [customBankName, setCustomBankName] = useState("");
 
+  // Staff management
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [showAddStaff, setShowAddStaff] = useState(false);
+  const [newStaffName, setNewStaffName] = useState("");
+  const [newStaffPin, setNewStaffPin] = useState("");
+
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     fetchBanks();
+    fetchStaff();
     const token = localStorage.getItem("gmail_provider_token");
   if (token && !company.gmail_connected) {
     setGmailConnected(true);
@@ -109,6 +123,52 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
       .order("tier", { ascending: true })
       .order("name", { ascending: true });
     if (!error && data) setBanks(data as BankRecord[]);
+  };
+
+  const fetchStaff = async () => {
+    const { data, error } = await supabase
+      .from("staff")
+      .select("id, name, pin, is_active")
+      .eq("company_id", company.id)
+      .order("created_at", { ascending: true });
+    if (!error && data) setStaffMembers(data as StaffMember[]);
+  };
+
+  const addStaffMember = async () => {
+    const trimmedName = newStaffName.trim();
+    const trimmedPin = newStaffPin.trim();
+    if (!trimmedName || !trimmedPin) {
+      toast.error("Name and PIN are required");
+      return;
+    }
+    if (!/^\d{4,8}$/.test(trimmedPin)) {
+      toast.error("PIN must be 4-8 digits");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("staff")
+      .insert({ company_id: company.id, name: trimmedName, pin: trimmedPin })
+      .select()
+      .single();
+    if (error) {
+      toast.error("Failed to add staff member");
+      return;
+    }
+    setStaffMembers((prev) => [...prev, data as StaffMember]);
+    setNewStaffName("");
+    setNewStaffPin("");
+    setShowAddStaff(false);
+    toast.success(`${trimmedName} added as staff`);
+  };
+
+  const removeStaffMember = async (staff: StaffMember) => {
+    const { error } = await supabase.from("staff").delete().eq("id", staff.id);
+    if (error) {
+      toast.error("Failed to remove staff member");
+      return;
+    }
+    setStaffMembers((prev) => prev.filter((s) => s.id !== staff.id));
+    toast.success(`${staff.name} removed`);
   };
 
   const toggleBank = (slug: string) => {
@@ -354,7 +414,91 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
         </div>
       </Section>
 
-      {/* Access Credentials */}
+      {/* Manage Staff */}
+      <Section title="Manage Staff" description="Create and manage individual staff accounts for kiosk access">
+        <div className="space-y-3">
+          {staffMembers.length === 0 && !showAddStaff && (
+            <p className="text-sm text-muted-foreground">No staff members yet. Add your first staff member below.</p>
+          )}
+          {staffMembers.map((staff) => (
+            <div
+              key={staff.id}
+              className="flex items-center justify-between p-3 rounded-xl bg-surface-2 border border-surface-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand">
+                  {staff.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{staff.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono tracking-widest">
+                    {"•".repeat(staff.pin.length)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => removeStaffMember(staff)}
+                className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Remove staff member"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+
+          {showAddStaff ? (
+            <div className="p-4 rounded-xl bg-surface-2 border border-emerald-brand/30 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Name</label>
+                <input
+                  type="text"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  placeholder="Staff member name"
+                  className="w-full bg-background border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">PIN (4-8 digits)</label>
+                <input
+                  type="text"
+                  value={newStaffPin}
+                  onChange={(e) => setNewStaffPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="1234"
+                  maxLength={8}
+                  className="w-full bg-background border border-surface-3 rounded-lg px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30 tracking-widest"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={addStaffMember}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-primary-foreground transition-all hover:opacity-90"
+                  style={{ background: "hsl(var(--emerald))" }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add
+                </button>
+                <button
+                  onClick={() => { setShowAddStaff(false); setNewStaffName(""); setNewStaffPin(""); }}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground bg-surface-3 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddStaff(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Add Staff Member
+            </button>
+          )}
+        </div>
+      </Section>
+
       <Section title="Staff Access Credentials" description="Staff enter these on the kiosk login screen">
         <div className="space-y-4">
           <div className="space-y-1.5">

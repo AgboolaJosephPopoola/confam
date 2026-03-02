@@ -22,26 +22,28 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc("validate_staff_login", {
+      const { data, error } = await supabase.rpc("validate_individual_staff_login", {
         p_company_code: companyCode.trim().toUpperCase(),
         p_staff_pin: pin.trim(),
       });
 
       if (error) throw error;
       if (!data || data.length === 0) {
-        toast.error("Invalid code or PIN. Try again.");
+        toast.error("Invalid PIN. Please check with your manager.");
         setLoading(false);
         return;
       }
 
-      const { company_id, company_name } = data[0] as { company_id: string; company_name: string };
+      const row = data[0] as { company_id: string; company_name: string; staff_id: string; staff_name: string };
       setStaffSession({
-        companyId: company_id,
-        companyName: company_name,
+        companyId: row.company_id,
+        companyName: row.company_name,
         companyCode: companyCode.trim().toUpperCase(),
         staffPin: pin.trim(),
+        staffId: row.staff_id,
+        staffName: row.staff_name,
       });
-      toast.success(`Welcome to ${company_name}`);
+      toast.success(`Welcome, ${row.staff_name}!`);
       onSuccess();
     } catch (err: unknown) {
       toast.error("Login failed. Check your credentials.");
@@ -68,7 +70,7 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
       <div className="w-full max-w-sm glass-card rounded-2xl p-6 shadow-card">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-foreground">Staff Access</h2>
-          <p className="text-sm text-muted-foreground mt-1">Enter your company credentials to continue</p>
+          <p className="text-sm text-muted-foreground mt-1">Enter your company code and personal PIN</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -91,7 +93,7 @@ export function StaffKioskLogin({ onSuccess }: StaffKioskLoginProps) {
 
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Access PIN
+              Your PIN
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

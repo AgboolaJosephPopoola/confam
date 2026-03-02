@@ -5,6 +5,8 @@ export interface StaffSession {
   companyName: string;
   companyCode: string;
   staffPin: string;
+  staffId?: string;
+  staffName?: string;
 }
 
 export function getStaffSession(): StaffSession | null {
