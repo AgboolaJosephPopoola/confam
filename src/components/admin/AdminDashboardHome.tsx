@@ -12,6 +12,7 @@ interface Transaction {
   amount: number;
   sender_name: string;
   bank_source: string;
+  item_description?: string;
   status: string;
   created_at: string;
 }
@@ -267,6 +268,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sender</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Bank</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Item</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3 w-10"></th>
               </tr>
@@ -303,6 +305,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                     </td>
                     <td className="px-4 py-3 text-foreground">{tx.sender_name}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{tx.bank_source}</td>
+                    <td className="px-4 py-3 text-foreground">{tx.item_description ?? "—"}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={tx.status} />
                     </td>
