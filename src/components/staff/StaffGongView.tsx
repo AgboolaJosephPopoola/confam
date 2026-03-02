@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { LogOut, Wifi, WifiOff, Zap, Sun, Moon } from "lucide-react";
+import { LogOut, Wifi, WifiOff, Zap, Sun, Moon, X } from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -15,9 +15,16 @@ interface Transaction {
   created_at: string;
 }
 
+interface BankRecord {
+  name: string;
+  slug: string;
+  logo_local_url: string | null;
+  logo_dev_url: string | null;
+}
+
 function formatAmount(amount: number) {
   return new Intl.NumberFormat("en-NG", {
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
 }
@@ -32,6 +39,44 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("en-NG", { month: "short", day: "numeric" });
 }
 
+function formatTime12(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-NG", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function BankLogoSmall({ bankSource, banks }: { bankSource: string; banks: BankRecord[] }) {
+  const [localFailed, setLocalFailed] = useState(false);
+  const [devFailed, setDevFailed] = useState(false);
+
+  const slug = bankSource.toLowerCase().replace(/\s+/g, "-");
+  const bank = banks.find((b) => b.slug === slug || b.name.toLowerCase() === bankSource.toLowerCase());
+
+  if (bank?.logo_local_url && !localFailed) {
+    return (
+      <img
+        src={bank.logo_local_url}
+        alt={bankSource}
+        className="w-8 h-8 rounded-lg object-contain"
+        onError={() => setLocalFailed(true)}
+      />
+    );
+  }
+  if (bank?.logo_dev_url && !devFailed) {
+    return (
+      <img
+        src={bank.logo_dev_url}
+        alt={bankSource}
+        className="w-8 h-8 rounded-lg object-contain"
+        onError={() => setDevFailed(true)}
+      />
+    );
+  }
+  return (
+    <div className="w-8 h-8 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand">
+      {bankSource.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 export function StaffGongView() {
   const { staffSession, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -40,6 +85,17 @@ export function StaffGongView() {
   const [connected, setConnected] = useState(false);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const audioRef = useRef<AudioContext | null>(null);
+  const [pendingTx, setPendingTx] = useState<Transaction | null>(null);
+  const [itemSold, setItemSold] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [banks, setBanks] = useState<BankRecord[]>([]);
+
+  // Fetch banks for logo resolution
+  useEffect(() => {
+    supabase.from("banks").select("name, slug, logo_local_url, logo_dev_url").then(({ data }) => {
+      if (data) setBanks(data as BankRecord[]);
+    });
+  }, []);
 
   const playGong = useCallback(() => {
     try {
@@ -116,6 +172,9 @@ export function StaffGongView() {
               description: `₦${formatAmount(newTx.amount)} from ${newTx.sender_name}`,
               duration: 5000,
             });
+            // Show sale confirmation popup
+            setPendingTx(newTx);
+            setItemSold("");
             setTimeout(() => {
               setNewIds((prev) => {
                 const next = new Set(prev);
@@ -132,6 +191,32 @@ export function StaffGongView() {
 
     return () => { supabase.removeChannel(channel); };
   }, [staffSession, playGong]);
+
+  const handleConfirmSale = async () => {
+    if (!pendingTx || !staffSession) return;
+    setConfirming(true);
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        item_description: itemSold.trim() || null,
+        acknowledged_at: new Date().toISOString(),
+        staff_id: staffSession.staffId || null,
+      })
+      .eq("id", pendingTx.id);
+    if (error) {
+      toast.error("Failed to confirm sale");
+    } else {
+      toast.success("Sale confirmed ✓");
+    }
+    setConfirming(false);
+    setPendingTx(null);
+    setItemSold("");
+  };
+
+  const handleDismiss = () => {
+    setPendingTx(null);
+    setItemSold("");
+  };
 
   if (!staffSession) return null;
 
@@ -154,12 +239,13 @@ export function StaffGongView() {
                 <span className="pulse-dot">
                   <span className="before:bg-emerald-brand after:bg-emerald-bright" />
                 </span>
-                <span className="text-xs text-emerald-brand font-medium">Live Monitor</span>
+                <span className="text-xs text-emerald-brand font-medium">
+                  {staffSession.staffName ? `${staffSession.staffName} · Live` : "Live Monitor"}
+                </span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Theme toggle */}
             <button
               onClick={() => setTheme(isDark ? "light" : "dark")}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
@@ -225,6 +311,73 @@ export function StaffGongView() {
           ))
         )}
       </main>
+
+      {/* Sale Confirmation Modal */}
+      {pendingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-card animate-fade-in space-y-5">
+            {/* Amount */}
+            <div className="text-center">
+              <p className="text-3xl font-bold text-emerald-brand font-mono-number">
+                ₦{formatAmount(pendingTx.amount)}
+              </p>
+              <p className="text-base font-semibold text-foreground mt-2">{pendingTx.sender_name}</p>
+            </div>
+
+            {/* Bank + Time */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-2 border border-surface-3">
+              <div className="flex items-center gap-2">
+                <BankLogoSmall bankSource={pendingTx.bank_source} banks={banks} />
+                <span className="text-sm text-foreground">{pendingTx.bank_source}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{formatTime12(pendingTx.created_at)}</span>
+            </div>
+
+            {/* Staff name (read-only) */}
+            {staffSession?.staffName && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Staff</label>
+                <div className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground">
+                  {staffSession.staffName}
+                </div>
+              </div>
+            )}
+
+            {/* Item sold input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Item Sold</label>
+              <input
+                type="text"
+                value={itemSold}
+                onChange={(e) => setItemSold(e.target.value)}
+                placeholder="e.g. 3 yards of fabric"
+                className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+                autoFocus
+              />
+            </div>
+
+            {/* Confirm button */}
+            <button
+              onClick={handleConfirmSale}
+              disabled={confirming}
+              className="w-full py-3 rounded-lg font-semibold text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 text-primary-foreground"
+              style={{ background: "hsl(var(--emerald))" }}
+            >
+              {confirming ? "Confirming…" : "Confirm Sale"}
+            </button>
+
+            {/* Dismiss link */}
+            <div className="text-center">
+              <button
+                onClick={handleDismiss}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

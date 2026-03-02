@@ -146,6 +146,11 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
         (payload) => {
           setTransactions((prev) => [payload.new as Transaction, ...prev]);
           toast.success("New transaction received!", { icon: "💰" });
+          try {
+            const audio = new Audio('/sounds/kaching.mp3');
+            audio.volume = 1.0;
+            audio.play().catch(() => {});
+          } catch (e) {}
         }
       )
       .on(

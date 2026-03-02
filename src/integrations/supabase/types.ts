@@ -210,6 +210,15 @@ export type Database = {
           status: string
         }[]
       }
+      validate_individual_staff_login: {
+        Args: { p_company_code: string; p_staff_pin: string }
+        Returns: {
+          company_id: string
+          company_name: string
+          staff_id: string
+          staff_name: string
+        }[]
+      }
       validate_staff_login: {
         Args: { p_company_code: string; p_staff_pin: string }
         Returns: {
