@@ -488,6 +488,7 @@ function EditTransactionModal({
         amount: parsedAmount,
         sender_name: sender.trim(),
         bank_source: bankSource.trim(),
+        item_description: itemDescription.trim() || null,
       })
       .eq("id", transaction.id);
 
