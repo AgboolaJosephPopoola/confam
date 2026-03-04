@@ -471,6 +471,7 @@ function EditTransactionModal({
   const [amount, setAmount] = useState(String(transaction.amount));
   const [sender, setSender] = useState(transaction.sender_name);
   const [bankSource, setBankSource] = useState(transaction.bank_source);
+  const [itemDescription, setItemDescription] = useState(transaction.item_description ?? "");
   const [loading, setLoading] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
