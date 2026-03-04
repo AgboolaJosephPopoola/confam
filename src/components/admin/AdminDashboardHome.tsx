@@ -471,6 +471,7 @@ function EditTransactionModal({
   const [amount, setAmount] = useState(String(transaction.amount));
   const [sender, setSender] = useState(transaction.sender_name);
   const [bankSource, setBankSource] = useState(transaction.bank_source);
+  const [itemDescription, setItemDescription] = useState(transaction.item_description ?? "");
   const [loading, setLoading] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -487,6 +488,7 @@ function EditTransactionModal({
         amount: parsedAmount,
         sender_name: sender.trim(),
         bank_source: bankSource.trim(),
+        item_description: itemDescription.trim() || null,
       })
       .eq("id", transaction.id);
 
@@ -534,6 +536,16 @@ function EditTransactionModal({
               type="text"
               value={bankSource}
               onChange={(e) => setBankSource(e.target.value)}
+              className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Item Sold</label>
+            <input
+              type="text"
+              value={itemDescription}
+              onChange={(e) => setItemDescription(e.target.value)}
+              placeholder="e.g. 3 yards of fabric"
               className="w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
             />
           </div>
