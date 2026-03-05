@@ -30,6 +30,8 @@ interface Company {
 interface BankRecord {
   name: string;
   slug: string;
+  logo_local_url: string | null;
+  logo_dev_url: string | null;
 }
 
 function formatAmount(amount: number) {
