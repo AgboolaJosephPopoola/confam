@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import {
   Mail, Hash, Lock, Power, Save, CheckCircle, Sun, Moon, Monitor,
-  Plus, X, Check, Building2, Trash2, Users,
-}from "lucide-react";
+  Plus, X, Check, Building2,
+} from "lucide-react";
 
 interface StaffMember {
   id: string;
