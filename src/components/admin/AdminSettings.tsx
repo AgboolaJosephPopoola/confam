@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import {
   Mail, Hash, Lock, Power, Save, CheckCircle, Sun, Moon, Monitor,
-  Plus, X, Check, Building2,
+  Plus, X, Check,
 } from "lucide-react";
 
 
@@ -85,8 +85,8 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   // Banks from DB
   const [banks, setBanks] = useState<BankRecord[]>([]);
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>(company.connected_banks ?? []);
-  const [addingCustom, setAddingCustom] = useState(false);
-  const [customBankName, setCustomBankName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
 
   const { theme, setTheme } = useTheme();
@@ -119,41 +119,12 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     );
   };
 
-  const addCustomBank = async () => {
-    const trimmed = customBankName.trim();
-    if (!trimmed) return;
-    if (banks.some((b) => b.name.toLowerCase() === trimmed.toLowerCase())) {
-      toast.error("Bank already exists");
-      return;
-    }
-    const slug = trimmed.toLowerCase().replace(/\s+/g, "-");
-    const guessedDomain = trimmed.toLowerCase().replace(/\s+/g, "") + ".com";
-
-    // Check if guessed domain is in the blocklist
-    const domainIsBlocked = BLOCKED_DOMAINS.some((d) => guessedDomain === d || guessedDomain.endsWith("." + d));
-    const domain = domainIsBlocked ? slug + "-bank.invalid" : guessedDomain;
-
-    const { data, error } = await supabase
-      .from("banks")
-      .insert({
-        name: trimmed,
-        slug,
-        email_domain: domain,
-        is_default: false,
-        tier: 2,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast.error("Failed to add bank");
-      return;
-    }
-    setBanks((prev) => [...prev, data as BankRecord]);
-    setSelectedSlugs((prev) => [...prev, slug]);
-    setCustomBankName("");
-    setAddingCustom(false);
-  };
+  const searchResults = banks.filter(
+    (b) =>
+      !selectedSlugs.includes(b.slug) &&
+      b.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      searchQuery.length > 0
+  );
 
   const removeCustomBank = async (bank: BankRecord) => {
     const { error } = await supabase.from("banks").delete().eq("id", bank.id);
@@ -282,41 +253,55 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
             );
           })}
 
-          {/* Add Other Bank */}
-          {addingCustom ? (
-            <div className="flex items-center gap-2 p-2 rounded-xl border border-emerald-brand/40 bg-surface-2 col-span-2 sm:col-span-3">
-              <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          {/* Add Other Bank — search dropdown */}
+          <div className="relative col-span-2 sm:col-span-3">
+            <div className="flex items-center gap-2 p-2 rounded-xl border border-dashed border-surface-3 hover:border-emerald-brand/40 bg-surface-2 transition-all">
+              <Plus className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
               <input
                 type="text"
-                value={customBankName}
-                onChange={(e) => setCustomBankName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addCustomBank()}
-                placeholder="Bank name…"
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                autoFocus
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                placeholder="Search to add other banks…"
+                className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
-              <button
-                onClick={addCustomBank}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-dim text-emerald-brand hover:bg-emerald-brand/20 transition-colors"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => { setAddingCustom(false); setCustomBankName(""); }}
-                className="p-1 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {searchQuery && (
+                <button onClick={() => { setSearchQuery(""); setShowDropdown(false); }} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          ) : (
-            <button
-              onClick={() => setAddingCustom(true)}
-              className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all text-xs font-medium"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Other Banks
-            </button>
-          )}
+
+            {showDropdown && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-surface-3 bg-surface-1 shadow-lg overflow-hidden">
+                {searchResults.slice(0, 6).map((bank) => {
+                  const logoUrl = bank.logo_local_url ?? bank.logo_dev_url ?? null;
+                  return (
+                    <button
+                      key={bank.id}
+                      onMouseDown={() => {
+                        toggleBank(bank.slug);
+                        setSearchQuery("");
+                        setShowDropdown(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                    >
+                      {logoUrl ? (
+                        <img src={logoUrl} alt={bank.name} className="w-7 h-7 rounded-lg object-contain flex-shrink-0" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
+                          {bank.name.charAt(0)}
+                        </div>
+                      )}
+                      <span className="text-sm text-foreground">{bank.name}</span>
+                      <Plus className="w-3.5 h-3.5 text-emerald-brand ml-auto" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground/50 mt-2">Bank logos provided by Logo.dev</p>

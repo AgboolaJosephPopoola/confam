@@ -30,6 +30,8 @@ interface Company {
 interface BankRecord {
   name: string;
   slug: string;
+  logo_local_url: string | null;
+  logo_dev_url: string | null;
 }
 
 function formatAmount(amount: number) {
@@ -84,6 +86,46 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function getBankLogo(bankSource: string, bankRecords: BankRecord[]): string | null {
+  const normalized = bankSource.toLowerCase().replace(/\s+/g, "-");
+  const match = bankRecords.find(
+    (b) =>
+      b.slug === normalized ||
+      b.name.toLowerCase() === bankSource.toLowerCase() ||
+      b.slug.replace(/-/g, "") === normalized.replace(/-/g, "")
+  );
+  if (!match) return null;
+  return match.logo_local_url ?? match.logo_dev_url ?? null;
+}
+
+function BankLogoCell({ bankSource, bankRecords }: { bankSource: string; bankRecords: BankRecord[] }) {
+  const [failed, setFailed] = useState(false);
+  const logoUrl = getBankLogo(bankSource, bankRecords);
+
+  if (logoUrl && !failed) {
+    return (
+      <div className="flex items-center gap-2">
+        <img
+          src={logoUrl}
+          alt={bankSource}
+          className="w-6 h-6 rounded-full object-contain flex-shrink-0"
+          onError={() => setFailed(true)}
+        />
+        <span className="text-xs font-mono text-muted-foreground">{bankSource}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-6 h-6 rounded-full bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
+        {bankSource.charAt(0).toUpperCase()}
+      </div>
+      <span className="text-xs font-mono text-muted-foreground">{bankSource}</span>
+    </div>
+  );
+}
+
 interface AdminDashboardHomeProps {
   company: Company;
 }
@@ -96,6 +138,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
   
   const [bankFilter, setBankFilter] = useState<string>("all");
   const [connectedBankNames, setConnectedBankNames] = useState<BankRecord[]>([]);
+  const [bankRecords, setBankRecords] = useState<BankRecord[]>([]);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   // Fetch bank names for connected_banks slugs
@@ -107,9 +150,12 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     const fetchBankNames = async () => {
       const { data } = await supabase
         .from("banks")
-        .select("name, slug")
+        .select("name, slug, logo_local_url, logo_dev_url")
         .in("slug", company.connected_banks!);
-      if (data) setConnectedBankNames(data as BankRecord[]);
+      if (data) {
+        setConnectedBankNames(data as BankRecord[]);
+        setBankRecords(data as BankRecord[]);
+      }
     };
     fetchBankNames();
   }, [company.connected_banks]);
@@ -242,19 +288,25 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
           >
             All Banks
           </button>
-          {connectedBankNames.map((bank) => (
-            <button
-              key={bank.slug}
-              onClick={() => setBankFilter(bank.slug)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                bankFilter === bank.slug
-                  ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
-                  : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
-              }`}
-            >
-              {bank.name}
-            </button>
-          ))}
+          {connectedBankNames.map((bank) => {
+            const logoUrl = bank.logo_local_url ?? bank.logo_dev_url ?? null;
+            return (
+              <button
+                key={bank.slug}
+                onClick={() => setBankFilter(bank.slug)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  bankFilter === bank.slug
+                    ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
+                    : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
+                }`}
+              >
+                {logoUrl && (
+                  <img src={logoUrl} alt={bank.name} className="w-4 h-4 rounded-full object-contain" />
+                )}
+                {bank.name}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -304,7 +356,9 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{tx.sender_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{tx.bank_source}</td>
+                    <td className="px-4 py-3">
+                      <BankLogoCell bankSource={tx.bank_source} bankRecords={bankRecords} />
+                    </td>
                     <td className="px-4 py-3 text-foreground">{tx.item_description ?? "—"}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={tx.status} />
