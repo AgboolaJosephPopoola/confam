@@ -98,6 +98,7 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
   
   const [bankFilter, setBankFilter] = useState<string>("all");
   const [connectedBankNames, setConnectedBankNames] = useState<BankRecord[]>([]);
+  const [bankRecords, setBankRecords] = useState<BankRecord[]>([]);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   // Fetch bank names for connected_banks slugs
