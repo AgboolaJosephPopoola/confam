@@ -85,8 +85,8 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   // Banks from DB
   const [banks, setBanks] = useState<BankRecord[]>([]);
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>(company.connected_banks ?? []);
-  const [addingCustom, setAddingCustom] = useState(false);
-  const [customBankName, setCustomBankName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
 
   const { theme, setTheme } = useTheme();
