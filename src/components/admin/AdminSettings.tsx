@@ -119,41 +119,12 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
     );
   };
 
-  const addCustomBank = async () => {
-    const trimmed = customBankName.trim();
-    if (!trimmed) return;
-    if (banks.some((b) => b.name.toLowerCase() === trimmed.toLowerCase())) {
-      toast.error("Bank already exists");
-      return;
-    }
-    const slug = trimmed.toLowerCase().replace(/\s+/g, "-");
-    const guessedDomain = trimmed.toLowerCase().replace(/\s+/g, "") + ".com";
-
-    // Check if guessed domain is in the blocklist
-    const domainIsBlocked = BLOCKED_DOMAINS.some((d) => guessedDomain === d || guessedDomain.endsWith("." + d));
-    const domain = domainIsBlocked ? slug + "-bank.invalid" : guessedDomain;
-
-    const { data, error } = await supabase
-      .from("banks")
-      .insert({
-        name: trimmed,
-        slug,
-        email_domain: domain,
-        is_default: false,
-        tier: 2,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast.error("Failed to add bank");
-      return;
-    }
-    setBanks((prev) => [...prev, data as BankRecord]);
-    setSelectedSlugs((prev) => [...prev, slug]);
-    setCustomBankName("");
-    setAddingCustom(false);
-  };
+  const searchResults = banks.filter(
+    (b) =>
+      !selectedSlugs.includes(b.slug) &&
+      b.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      searchQuery.length > 0
+  );
 
   const removeCustomBank = async (bank: BankRecord) => {
     const { error } = await supabase.from("banks").delete().eq("id", bank.id);
