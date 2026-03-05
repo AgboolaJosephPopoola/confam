@@ -126,10 +126,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({ skipped: true, reason: "domain_not_allowed" }), { status: 200, headers: corsHeaders });
     }
 
-    const emailBody = emailText ?? html?.replace(/<[^>]*>/g, " ") ?? "";
-    const extracted = await extractWithGemini(subject ?? "", from ?? "", emailBody, GEMINI_API_KEY);
+   const emailBody = emailText ?? html?.replace(/<[^>]*>/g, " ") ?? "";
 
-    if (!extracted) return new Response(JSON.stringify({ processed: false, reason: "no_payment_data" }), { status: 200, headers: corsHeaders });
+  // TEMP: hardcoded extraction for pipeline testing
+    const extracted = {
+      amount: 5000,
+      sender_name: "Test Sender",
+      bank_source: "GTBank"
+    };
+    
+    console.log("Bypassing Gemini, using hardcoded extraction");
 
     // This insert will only succeed if we run the SQL fix below
     const { error: insertError } = await supabaseAdmin.from("transactions").insert({
