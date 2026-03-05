@@ -248,19 +248,25 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
           >
             All Banks
           </button>
-          {connectedBankNames.map((bank) => (
-            <button
-              key={bank.slug}
-              onClick={() => setBankFilter(bank.slug)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                bankFilter === bank.slug
-                  ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
-                  : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
-              }`}
-            >
-              {bank.name}
-            </button>
-          ))}
+          {connectedBankNames.map((bank) => {
+            const logoUrl = bank.logo_local_url ?? bank.logo_dev_url ?? null;
+            return (
+              <button
+                key={bank.slug}
+                onClick={() => setBankFilter(bank.slug)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  bankFilter === bank.slug
+                    ? "bg-emerald-dim text-emerald-brand border border-emerald-brand/40"
+                    : "bg-surface-2 text-muted-foreground border border-surface-3 hover:text-foreground"
+                }`}
+              >
+                {logoUrl && (
+                  <img src={logoUrl} alt={bank.name} className="w-4 h-4 rounded-full object-contain" />
+                )}
+                {bank.name}
+              </button>
+            );
+          })}
         </div>
       )}
 
