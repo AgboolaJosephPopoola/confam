@@ -14,6 +14,22 @@ const ALLOWED_BANK_DOMAINS = [
   "palmpay.com", "getcarbon.co", "safehavenmfb.com", "polarisbanklimited.com"
 ];
 
+if (message_id) {
+  const { data: existing } = await supabaseAdmin
+    .from("transactions")
+    .select("id")
+    .eq("message_id", message_id)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(`Duplicate skipped: ${message_id}`);
+    return new Response(
+      JSON.stringify({ skipped: true, reason: "duplicate" }),
+      { status: 200, headers: corsHeaders }
+    );
+  }
+}
+
 function isAllowedDomain(fromHeader: string): boolean {
   const emailMatch = fromHeader.match(/<([^>]+)>/) ?? fromHeader.match(/([^\s]+@[^\s]+)/);
   const email = emailMatch?.[1] ?? fromHeader;
@@ -43,7 +59,7 @@ Return ONLY a JSON object with these exact keys:
 If you cannot find a clear credit amount and sender name, return null.`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
