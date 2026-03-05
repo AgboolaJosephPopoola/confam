@@ -55,7 +55,7 @@ If you cannot find a clear credit amount and sender name, return null.`;
           { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
           { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
         ],
-        generationConfig: { temperature: 0, maxOutputTokens: 200, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0, maxOutputTokens: 200 },
       }),
     }
   );
