@@ -110,9 +110,12 @@ export function AdminDashboardHome({ company }: AdminDashboardHomeProps) {
     const fetchBankNames = async () => {
       const { data } = await supabase
         .from("banks")
-        .select("name, slug")
+        .select("name, slug, logo_local_url, logo_dev_url")
         .in("slug", company.connected_banks!);
-      if (data) setConnectedBankNames(data as BankRecord[]);
+      if (data) {
+        setConnectedBankNames(data as BankRecord[]);
+        setBankRecords(data as BankRecord[]);
+      }
     };
     fetchBankNames();
   }, [company.connected_banks]);
