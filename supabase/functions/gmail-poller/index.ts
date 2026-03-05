@@ -63,6 +63,8 @@ If you cannot find a clear credit amount and sender name, return null.`;
   if (!res.ok) return null;
   const data = await res.json();
   const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  console.log("Gemini raw:", text); // add this line
+  console.log("Gemini full response:", JSON.stringify(data)); // add this too
 
   try {
     const parsed = JSON.parse(text);
