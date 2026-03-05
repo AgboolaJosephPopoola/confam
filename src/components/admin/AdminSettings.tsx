@@ -93,7 +93,6 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
 
   useEffect(() => {
     fetchBanks();
-    fetchStaff();
     const token = localStorage.getItem("gmail_provider_token");
   if (token && !company.gmail_connected) {
     setGmailConnected(true);
@@ -112,52 +111,6 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
       .order("tier", { ascending: true })
       .order("name", { ascending: true });
     if (!error && data) setBanks(data as BankRecord[]);
-  };
-
-  const fetchStaff = async () => {
-    const { data, error } = await supabase
-      .from("staff")
-      .select("id, name, pin, is_active")
-      .eq("company_id", company.id)
-      .order("created_at", { ascending: true });
-    if (!error && data) setStaffMembers(data as StaffMember[]);
-  };
-
-  const addStaffMember = async () => {
-    const trimmedName = newStaffName.trim();
-    const trimmedPin = newStaffPin.trim();
-    if (!trimmedName || !trimmedPin) {
-      toast.error("Name and PIN are required");
-      return;
-    }
-    if (!/^\d{4,8}$/.test(trimmedPin)) {
-      toast.error("PIN must be 4-8 digits");
-      return;
-    }
-    const { data, error } = await supabase
-      .from("staff")
-      .insert({ company_id: company.id, name: trimmedName, pin: trimmedPin })
-      .select()
-      .single();
-    if (error) {
-      toast.error("Failed to add staff member");
-      return;
-    }
-    setStaffMembers((prev) => [...prev, data as StaffMember]);
-    setNewStaffName("");
-    setNewStaffPin("");
-    setShowAddStaff(false);
-    toast.success(`${trimmedName} added as staff`);
-  };
-
-  const removeStaffMember = async (staff: StaffMember) => {
-    const { error } = await supabase.from("staff").delete().eq("id", staff.id);
-    if (error) {
-      toast.error("Failed to remove staff member");
-      return;
-    }
-    setStaffMembers((prev) => prev.filter((s) => s.id !== staff.id));
-    toast.success(`${staff.name} removed`);
   };
 
   const toggleBank = (slug: string) => {
