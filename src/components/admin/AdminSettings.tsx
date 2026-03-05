@@ -9,12 +9,6 @@ import {
   Plus, X, Check, Building2,
 } from "lucide-react";
 
-interface StaffMember {
-  id: string;
-  name: string;
-  pin: string;
-  is_active: boolean;
-}
 
 interface Company {
   id: string;
