@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   LayoutDashboard, Settings, Users, Zap, LogOut,
   ChevronRight, RefreshCw, TrendingUp, Menu, X,
+  Trash2, Plus, UserPlus, Copy,
 } from "lucide-react";
 import { AdminDashboardHome } from "./AdminDashboardHome";
 import { AdminSettings } from "./AdminSettings";
@@ -232,33 +233,184 @@ export function AdminDashboard() {
   );
 }
 
-function StaffInfoPanel({ company }: { company: { company_code: string; staff_pin: string } }) {
+function StaffInfoPanel({ company }: { company: { id: string; company_code: string; staff_pin: string } }) {
+  const [staffMembers, setStaffMembers] = useState<{ id: string; name: string; pin: string; is_active: boolean }[]>([]);
+  const [showAddStaff, setShowAddStaff] = useState(false);
+  const [newStaffName, setNewStaffName] = useState("");
+  const [newStaffPin, setNewStaffPin] = useState("");
+
+  useEffect(() => {
+    fetchStaff();
+  }, [company.id]);
+
+  const fetchStaff = async () => {
+    const { data, error } = await supabase
+      .from("staff")
+      .select("id, name, pin, is_active")
+      .eq("company_id", company.id)
+      .order("created_at", { ascending: true });
+    if (!error && data) setStaffMembers(data);
+  };
+
+  const addStaffMember = async () => {
+    const trimmedName = newStaffName.trim();
+    const trimmedPin = newStaffPin.trim();
+    if (!trimmedName || !trimmedPin) { toast.error("Name and PIN are required"); return; }
+    if (!/^\d{4,8}$/.test(trimmedPin)) { toast.error("PIN must be 4-8 digits"); return; }
+    const { data, error } = await supabase
+      .from("staff")
+      .insert({ company_id: company.id, name: trimmedName, pin: trimmedPin })
+      .select()
+      .single();
+    if (error) { toast.error("Failed to add staff member"); return; }
+    setStaffMembers((prev) => [...prev, data]);
+    setNewStaffName(""); setNewStaffPin(""); setShowAddStaff(false);
+    toast.success(`${trimmedName} added as staff`);
+  };
+
+  const removeStaffMember = async (staff: { id: string; name: string }) => {
+    const { error } = await supabase.from("staff").delete().eq("id", staff.id);
+    if (error) { toast.error("Failed to remove staff member"); return; }
+    setStaffMembers((prev) => prev.filter((s) => s.id !== staff.id));
+    toast.success(`${staff.name} removed`);
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied`);
+  };
+
   return (
-    <div className="max-w-md space-y-6">
+    <div className="max-w-xl space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Staff Access Credentials</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Share these with your staff for kiosk access
-        </p>
+        <h2 className="text-lg font-semibold">Staff Access</h2>
+        <p className="text-sm text-muted-foreground mt-1">Manage staff accounts and kiosk login details</p>
       </div>
-      <div className="glass-card rounded-xl p-6 space-y-5">
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Company Code</p>
-          <p className="font-mono text-2xl font-bold text-emerald-brand tracking-widest">
-            {company.company_code}
-          </p>
+
+      {/* Section 1: Staff Members */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Staff Members</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Individual staff accounts for kiosk login</p>
         </div>
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Staff PIN</p>
-          <p className="font-mono text-2xl font-bold text-foreground tracking-widest">
-            {company.staff_pin}
-          </p>
+        <div className="space-y-3">
+          {staffMembers.length === 0 && !showAddStaff && (
+            <p className="text-sm text-muted-foreground">No staff members yet. Add your first staff member below.</p>
+          )}
+          {staffMembers.map((staff) => (
+            <div key={staff.id} className="flex items-center justify-between p-3 rounded-xl bg-surface-2 border border-surface-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand">
+                  {staff.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{staff.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono tracking-widest">{"•".repeat(staff.pin.length)}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => removeStaffMember(staff)}
+                className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Remove staff member"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+
+          {showAddStaff ? (
+            <div className="p-4 rounded-xl bg-surface-2 border border-emerald-brand/30 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Name</label>
+                <input
+                  type="text"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  placeholder="Staff member name"
+                  className="w-full bg-background border border-surface-3 rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">PIN (4-8 digits)</label>
+                <input
+                  type="text"
+                  value={newStaffPin}
+                  onChange={(e) => setNewStaffPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="1234"
+                  maxLength={8}
+                  className="w-full bg-background border border-surface-3 rounded-lg px-4 py-2.5 text-sm font-mono text-foreground focus:outline-none focus:border-emerald-brand/50 focus:ring-1 focus:ring-emerald-brand/30 tracking-widest"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={addStaffMember}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-primary-foreground transition-all hover:opacity-90"
+                  style={{ background: "hsl(var(--emerald))" }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add
+                </button>
+                <button
+                  onClick={() => { setShowAddStaff(false); setNewStaffName(""); setNewStaffPin(""); }}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground bg-surface-3 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddStaff(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Add Staff Member
+            </button>
+          )}
         </div>
-        <div className="pt-3 border-t border-surface-3">
-          <p className="text-xs text-muted-foreground">
-            Staff will use these on the kiosk login screen to view today's transactions.
-            Change these in Settings anytime.
-          </p>
+      </div>
+
+      {/* Section 2: Kiosk Access Details */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Kiosk Login Details</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Share these with your staff to access the kiosk</p>
+        </div>
+        <div className="glass-card rounded-xl p-6 space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Company Code</p>
+              <p className="font-mono text-2xl font-bold text-emerald-brand tracking-widest">
+                {company.company_code}
+              </p>
+            </div>
+            <button
+              onClick={() => copyToClipboard(company.company_code, "Company code")}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+              title="Copy company code"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex items-center justify-between border-t border-surface-3 pt-4">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Kiosk URL</p>
+              <p className="font-mono text-sm text-foreground">confampay.vercel.app</p>
+            </div>
+            <button
+              onClick={() => copyToClipboard("confampay.vercel.app", "Kiosk URL")}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+              title="Copy kiosk URL"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="pt-3 border-t border-surface-3">
+            <p className="text-xs text-muted-foreground">
+              Staff use their individual PIN and the company code above to log in to the kiosk.
+            </p>
+          </div>
         </div>
       </div>
     </div>
