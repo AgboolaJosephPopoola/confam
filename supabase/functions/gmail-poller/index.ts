@@ -102,6 +102,23 @@ serve(async (req) => {
     const { from, subject, text: emailText, html, company_id, message_id } = body;
     if (!company_id) throw new Error("company_id required");
 
+    // Duplicate check
+    if (message_id) {
+      const { data: existing } = await supabaseAdmin
+        .from("transactions")
+        .select("id")
+        .eq("message_id", message_id)
+        .maybeSingle();
+
+      if (existing) {
+        console.log(`Duplicate skipped: ${message_id}`);
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "duplicate" }),
+          { status: 200, headers: corsHeaders }
+        );
+      }
+    }
+
     if (!isAllowedDomain(from ?? "")) {
       console.log(`Rejected: ${from} is not a valid bank.`);
       return new Response(JSON.stringify({ skipped: true, reason: "domain_not_allowed" }), { status: 200, headers: corsHeaders });

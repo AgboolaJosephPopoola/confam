@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   LayoutDashboard, Settings, Users, Zap, LogOut,
   ChevronRight, RefreshCw, TrendingUp, Menu, X,
+  Trash2, Plus, UserPlus, Copy,
 } from "lucide-react";
 import { AdminDashboardHome } from "./AdminDashboardHome";
 import { AdminSettings } from "./AdminSettings";
