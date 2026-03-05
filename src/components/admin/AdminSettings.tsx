@@ -88,11 +88,6 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
   const [addingCustom, setAddingCustom] = useState(false);
   const [customBankName, setCustomBankName] = useState("");
 
-  // Staff management
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [showAddStaff, setShowAddStaff] = useState(false);
-  const [newStaffName, setNewStaffName] = useState("");
-  const [newStaffPin, setNewStaffPin] = useState("");
 
   const { theme, setTheme } = useTheme();
 
