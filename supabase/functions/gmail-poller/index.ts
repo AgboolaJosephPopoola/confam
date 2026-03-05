@@ -14,22 +14,6 @@ const ALLOWED_BANK_DOMAINS = [
   "palmpay.com", "getcarbon.co", "safehavenmfb.com", "polarisbanklimited.com"
 ];
 
-if (message_id) {
-  const { data: existing } = await supabaseAdmin
-    .from("transactions")
-    .select("id")
-    .eq("message_id", message_id)
-    .maybeSingle();
-
-  if (existing) {
-    console.log(`Duplicate skipped: ${message_id}`);
-    return new Response(
-      JSON.stringify({ skipped: true, reason: "duplicate" }),
-      { status: 200, headers: corsHeaders }
-    );
-  }
-}
-
 function isAllowedDomain(fromHeader: string): boolean {
   const emailMatch = fromHeader.match(/<([^>]+)>/) ?? fromHeader.match(/([^\s]+@[^\s]+)/);
   const email = emailMatch?.[1] ?? fromHeader;
