@@ -86,6 +86,46 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function getBankLogo(bankSource: string, bankRecords: BankRecord[]): string | null {
+  const normalized = bankSource.toLowerCase().replace(/\s+/g, "-");
+  const match = bankRecords.find(
+    (b) =>
+      b.slug === normalized ||
+      b.name.toLowerCase() === bankSource.toLowerCase() ||
+      b.slug.replace(/-/g, "") === normalized.replace(/-/g, "")
+  );
+  if (!match) return null;
+  return match.logo_local_url ?? match.logo_dev_url ?? null;
+}
+
+function BankLogoCell({ bankSource, bankRecords }: { bankSource: string; bankRecords: BankRecord[] }) {
+  const [failed, setFailed] = useState(false);
+  const logoUrl = getBankLogo(bankSource, bankRecords);
+
+  if (logoUrl && !failed) {
+    return (
+      <div className="flex items-center gap-2">
+        <img
+          src={logoUrl}
+          alt={bankSource}
+          className="w-6 h-6 rounded-full object-contain flex-shrink-0"
+          onError={() => setFailed(true)}
+        />
+        <span className="text-xs font-mono text-muted-foreground">{bankSource}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-6 h-6 rounded-full bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
+        {bankSource.charAt(0).toUpperCase()}
+      </div>
+      <span className="text-xs font-mono text-muted-foreground">{bankSource}</span>
+    </div>
+  );
+}
+
 interface AdminDashboardHomeProps {
   company: Company;
 }

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import {
   Mail, Hash, Lock, Power, Save, CheckCircle, Sun, Moon, Monitor,
-  Plus, X, Check, Building2,
+  Plus, X, Check,
 } from "lucide-react";
 
 
