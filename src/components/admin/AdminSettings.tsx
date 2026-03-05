@@ -253,41 +253,55 @@ export function AdminSettings({ company, onUpdate }: AdminSettingsProps) {
             );
           })}
 
-          {/* Add Other Bank */}
-          {addingCustom ? (
-            <div className="flex items-center gap-2 p-2 rounded-xl border border-emerald-brand/40 bg-surface-2 col-span-2 sm:col-span-3">
-              <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          {/* Add Other Bank — search dropdown */}
+          <div className="relative col-span-2 sm:col-span-3">
+            <div className="flex items-center gap-2 p-2 rounded-xl border border-dashed border-surface-3 hover:border-emerald-brand/40 bg-surface-2 transition-all">
+              <Plus className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
               <input
                 type="text"
-                value={customBankName}
-                onChange={(e) => setCustomBankName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addCustomBank()}
-                placeholder="Bank name…"
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                autoFocus
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                placeholder="Search to add other banks…"
+                className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
-              <button
-                onClick={addCustomBank}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-dim text-emerald-brand hover:bg-emerald-brand/20 transition-colors"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => { setAddingCustom(false); setCustomBankName(""); }}
-                className="p-1 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {searchQuery && (
+                <button onClick={() => { setSearchQuery(""); setShowDropdown(false); }} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          ) : (
-            <button
-              onClick={() => setAddingCustom(true)}
-              className="flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-surface-3 text-muted-foreground hover:text-foreground hover:border-emerald-brand/40 transition-all text-xs font-medium"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Other Banks
-            </button>
-          )}
+
+            {showDropdown && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-xl border border-surface-3 bg-surface-1 shadow-lg overflow-hidden">
+                {searchResults.slice(0, 6).map((bank) => {
+                  const logoUrl = bank.logo_local_url ?? bank.logo_dev_url ?? null;
+                  return (
+                    <button
+                      key={bank.id}
+                      onMouseDown={() => {
+                        toggleBank(bank.slug);
+                        setSearchQuery("");
+                        setShowDropdown(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                    >
+                      {logoUrl ? (
+                        <img src={logoUrl} alt={bank.name} className="w-7 h-7 rounded-lg object-contain flex-shrink-0" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-lg bg-emerald-dim flex items-center justify-center text-xs font-bold text-emerald-brand flex-shrink-0">
+                          {bank.name.charAt(0)}
+                        </div>
+                      )}
+                      <span className="text-sm text-foreground">{bank.name}</span>
+                      <Plus className="w-3.5 h-3.5 text-emerald-brand ml-auto" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground/50 mt-2">Bank logos provided by Logo.dev</p>
