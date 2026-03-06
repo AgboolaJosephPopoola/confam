@@ -83,7 +83,7 @@ If you cannot find a clear credit amount and sender name, return null.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  console.log("VERSION: hardcoded-test-v2"); // add this line
+  console.log("DEPLOYED-V4:", new Date().toISOString());
 
   try {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
